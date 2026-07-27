@@ -1,0 +1,78 @@
+.page {
+  display: grid;
+  gap: 1rem;
+}
+
+header h1,
+header p,
+h2 {
+  margin: 0;
+}
+
+header p,
+.muted {
+  color: #5c6b73;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(38, 70, 83, 0.08);
+  border-radius: 16px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.row,
+.actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+input,
+button {
+  font: inherit;
+  border-radius: 10px;
+  border: 1px solid #d5dde1;
+  padding: 0.55rem 0.7rem;
+}
+
+button {
+  background: #264653;
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: transparent;
+  color: #264653;
+  border: 1px solid #d5dde1;
+}
+
+button.danger {
+  background: #e76f51;
+}
+
+.list article {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #e7ecee;
+}
+
+.dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.45rem;
+}
+
+.error {
+  color: #b23a28;
+}

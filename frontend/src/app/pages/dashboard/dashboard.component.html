@@ -1,0 +1,44 @@
+<section class="page">
+  <header>
+    <div>
+      <h1>Dashboard</h1>
+      <p>Monthly overview and recent activity</p>
+    </div>
+    <a class="btn" routerLink="/expenses">Add expense</a>
+  </header>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <p *ngIf="loading">Loading…</p>
+
+  <div class="hero-stat" *ngIf="summary">
+    <span>This month</span>
+    <strong>{{ summary.totalAmount | currency: summary.currency }}</strong>
+  </div>
+
+  <div class="grid" *ngIf="summary">
+    <article>
+      <h2>By category</h2>
+      <ul *ngIf="summary.byCategory.length; else emptyCats">
+        <li *ngFor="let row of summary.byCategory">
+          <span>{{ row.categoryName }}</span>
+          <strong>{{ row.total | currency: summary.currency }}</strong>
+        </li>
+      </ul>
+      <ng-template #emptyCats><p class="muted">No expenses this month yet.</p></ng-template>
+    </article>
+
+    <article>
+      <h2>Recent expenses</h2>
+      <ul *ngIf="recent.length; else emptyRecent">
+        <li *ngFor="let e of recent">
+          <div>
+            <strong>{{ e.description || e.categoryName }}</strong>
+            <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
+          </div>
+          <span>{{ e.amount | currency: e.currency }}</span>
+        </li>
+      </ul>
+      <ng-template #emptyRecent><p class="muted">No expenses yet.</p></ng-template>
+    </article>
+  </div>
+</section>

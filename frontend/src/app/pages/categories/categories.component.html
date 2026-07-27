@@ -1,0 +1,34 @@
+<section class="page">
+  <header>
+    <div>
+      <h1>Categories</h1>
+      <p>Organize spending into custom labels</p>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
+    <h2>{{ editingId ? 'Edit category' : 'New category' }}</h2>
+    <div class="row">
+      <input type="text" formControlName="name" placeholder="Name" />
+      <input type="color" formControlName="color" />
+      <button type="submit">{{ editingId ? 'Update' : 'Add' }}</button>
+      <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
+    </div>
+  </form>
+
+  <div class="panel list">
+    <article *ngFor="let c of categories">
+      <div>
+        <span class="dot" [style.background]="c.color || '#999'"></span>
+        <strong>{{ c.name }}</strong>
+      </div>
+      <div class="actions">
+        <button type="button" class="ghost" (click)="edit(c)">Edit</button>
+        <button type="button" class="danger" (click)="remove(c.id)">Delete</button>
+      </div>
+    </article>
+    <p class="muted" *ngIf="!categories.length">No categories yet.</p>
+  </div>
+</section>
