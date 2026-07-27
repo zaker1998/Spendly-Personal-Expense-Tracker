@@ -38,7 +38,7 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             UserDetailsService userDetailsService,
-            @Value("${spendly.cors.allowed-origins}") String allowedOrigins
+            @Value("${spendly.cors.allowed-origins:http://localhost:4200,http://localhost}") String allowedOrigins
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;

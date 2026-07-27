@@ -17,8 +17,8 @@ public class JwtService {
     private final long expirationMs;
 
     public JwtService(
-            @Value("${spendly.jwt.secret}") String secret,
-            @Value("${spendly.jwt.expiration-ms}") long expirationMs
+            @Value("${spendly.jwt.secret:spendly-dev-secret-key-change-me-in-production-32chars-min}") String secret,
+            @Value("${spendly.jwt.expiration-ms:86400000}") long expirationMs
     ) {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {

@@ -1,3 +1,16 @@
+spendly:
+  jwt:
+    secret: test-secret-key-at-least-32-characters-long!!
+    expiration-ms: 3600000
+  cors:
+    allowed-origins: http://localhost:4200
+
 spring:
   main:
     allow-bean-definition-overriding: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
