@@ -2,6 +2,8 @@
 
 Personal expense tracker built as a portfolio project to demonstrate enterprise full-stack patterns common in Austria/Germany: **Java 21 · Spring Boot · JWT · JPA/Hibernate · Flyway · PostgreSQL · Angular · Docker · GitHub Actions · Testcontainers**.
 
+[![CI](https://github.com/zaker1998/Spindly-Personal-expense-tracker-/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spindly-Personal-expense-tracker-/actions/workflows/ci.yml)
+
 ## Features
 
 - JWT authentication with `USER` and `ADMIN` roles
@@ -24,11 +26,10 @@ Angular SPA  --Bearer JWT-->  Spring Boot REST API  -->  PostgreSQL
 ```
 
 ```text
-full_stack_java_project/
-  backend/                 Spring Boot API
-  frontend/                Angular SPA (+ nginx in Docker)
-  docker-compose.yml
-  .github/workflows/ci.yml
+backend/                 Spring Boot API (Java 21)
+frontend/                Angular SPA (+ nginx in Docker)
+docker-compose.yml
+.github/workflows/ci.yml
 ```
 
 ## Quick start (Docker)
@@ -52,6 +53,15 @@ docker compose up --build
 | `admin@spendly.app` | `Admin123!` | ADMIN |
 | `demo@spendly.app` | `Demo123!` | USER |
 
+## Screenshots
+
+![Login](docs/screenshots/login.png)
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+![Expenses](docs/screenshots/expenses.png)
+
+![Swagger](docs/screenshots/swagger.png)
 ## Local development
 
 ### Prerequisites
@@ -67,9 +77,8 @@ docker compose up --build
 export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"   # macOS Homebrew
 docker compose up postgres -d
 cd backend
-# if using Compose Postgres published on 5433:
-# SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/spendly
-mvn spring-boot:run
+# Compose Postgres is published on host port 5433:
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/spendly mvn spring-boot:run
 ```
 
 ### Frontend
@@ -80,7 +89,7 @@ npm install
 npm start
 ```
 
-App: http://localhost:4200 (local API: `http://localhost:8080/api` or Compose API: `http://localhost:8081/api`)
+App: http://localhost:4200 (dev API: `http://localhost:8080/api` or Compose API via nginx: same-origin `/api`)
 
 ## API overview
 
@@ -105,9 +114,12 @@ Includes:
 - `JwtServiceTest` / `CategoryServiceTest` (unit)
 - `ExpenseApiIntegrationTest` (Testcontainers + MockMvc)
 
-## Screenshots
+CI runs the same pipeline on every push: Maven tests → Angular build → Docker image builds.
 
-Add screenshots under `docs/screenshots/` after first local run (login, dashboard, expenses).
+## CV / LinkedIn blurb (copy-paste)
+
+> **Spendly** — Full-stack expense tracker (Spring Boot, Angular, PostgreSQL). JWT auth, filtered/paginated APIs, Flyway, Testcontainers, Docker Compose, GitHub Actions.  
+> Repo: https://github.com/zaker1998/Spindly-Personal-expense-tracker-
 
 ## License
 
