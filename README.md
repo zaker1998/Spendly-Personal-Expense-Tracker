@@ -2,6 +2,8 @@
 
 Personal expense tracker with Spring Boot + Angular.
 
+**Live:** https://spendly-33ek.onrender.com  
+
 **Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers
 
 [![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
