@@ -61,7 +61,7 @@ public class DataSeeder {
             expenseRepository.save(expense(demo, categories.get(2), "850.00", today.withDayOfMonth(1), "Monthly rent"));
             expenseRepository.save(expense(demo, categories.get(3), "45.00", today.minusDays(5), "Cinema"));
 
-            log.info("Seeded demo users: admin@spendly.app / Admin123!, demo@spendly.app / Demo123!");
+            log.info("Demo users ready (see README)");
         };
     }
 

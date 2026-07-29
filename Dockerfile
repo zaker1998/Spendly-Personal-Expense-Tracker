@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1
-# Single image: Angular SPA + Spring Boot API (best for Render / Railway / Fly)
 
 FROM node:22-alpine AS frontend-build
 WORKDIR /frontend

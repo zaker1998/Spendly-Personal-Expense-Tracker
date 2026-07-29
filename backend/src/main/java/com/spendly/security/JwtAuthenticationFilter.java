@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ignored) {
-            // Invalid token → leave unauthenticated; SecurityConfig will reject protected routes
+            // bad/expired token
         }
 
         filterChain.doFilter(request, response);

@@ -1,9 +1,3 @@
-# Render Blueprint — one-click deploy
-# https://render.com/docs/blueprint-spec
-#
-# Dashboard → Blueprints → New → select this repo.
-# Demo logins: demo@spendly.app / Demo123!  |  admin@spendly.app / Admin123!
-
 databases:
   - name: spendly-db
     plan: free

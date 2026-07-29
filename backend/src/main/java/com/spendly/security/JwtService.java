@@ -22,7 +22,6 @@ public class JwtService {
     ) {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
-            // pad for HS256 minimum key length in dev
             keyBytes = java.util.Arrays.copyOf(keyBytes, 32);
         }
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);

@@ -9,11 +9,6 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.resource.PathResourceResolver;
 
-/**
- * Serves the Angular SPA from classpath:/static and falls back to index.html
- * for client-side routes (e.g. /expenses, /login). Only active when the SPA
- * was packaged into the JAR (production Docker image).
- */
 @Configuration
 @ConditionalOnResource(resources = "classpath:/static/index.html")
 public class SpaWebConfig implements WebMvcConfigurer {

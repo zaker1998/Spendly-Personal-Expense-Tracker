@@ -18,7 +18,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Spendly API")
-                        .description("Personal expense tracker — JWT-secured REST API")
+                        .description("Spendly REST API")
                         .version("1.0.0")
                         .contact(new Contact().name("Marat Dussaliyev").email("dusaliev.marat@gmail.com")))
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
