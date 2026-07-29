@@ -1,0 +1,11 @@
+.git
+.github
+**/node_modules
+**/dist
+**/target
+**/.angular
+docs
+*.md
+.DS_Store
+frontend/Dockerfile
+frontend/nginx.conf
