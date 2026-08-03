@@ -3,6 +3,13 @@
   gap: 1rem;
 }
 
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+}
+
 header h1,
 header p,
 h2 {

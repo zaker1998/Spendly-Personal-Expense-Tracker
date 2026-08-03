@@ -4,6 +4,7 @@
       <h1>Expenses</h1>
       <p>Filter, create, and edit your spending</p>
     </div>
+    <button type="button" class="ghost" (click)="exportCsv()">Export CSV</button>
   </header>
 
   <p class="error" *ngIf="error">{{ error }}</p>

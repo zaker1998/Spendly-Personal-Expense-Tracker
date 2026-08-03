@@ -121,4 +121,26 @@ export class ExpensesComponent implements OnInit {
     this.editingId = null;
     this.form.patchValue({ amount: 0, description: '' });
   }
+
+  exportCsv(): void {
+    const f = this.filters.getRawValue();
+    this.api
+      .exportExpensesCsv({
+        categoryId: f.categoryId ? Number(f.categoryId) : null,
+        from: f.from || null,
+        to: f.to || null,
+        search: f.search || null
+      })
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'expenses.csv';
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => (this.error = 'Export failed')
+      });
+  }
 }
