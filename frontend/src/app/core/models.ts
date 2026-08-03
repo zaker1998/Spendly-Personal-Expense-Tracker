@@ -49,3 +49,17 @@ export interface MonthlySummary {
   currency: string;
   byCategory: CategoryTotal[];
 }
+
+export interface Budget {
+  id: number;
+  categoryId: number | null;
+  categoryName: string;
+  limitAmount: number;
+  spentAmount: number;
+  remainingAmount: number;
+  percentUsed: number;
+  overBudget: boolean;
+  year: number;
+  month: number;
+  currency: string;
+}

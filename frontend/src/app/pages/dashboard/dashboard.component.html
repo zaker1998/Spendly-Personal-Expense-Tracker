@@ -4,7 +4,10 @@
       <h1>Dashboard</h1>
       <p>Monthly overview and recent activity</p>
     </div>
-    <a class="btn" routerLink="/expenses">Add expense</a>
+    <div class="actions">
+      <a class="btn ghost" routerLink="/budgets">Budgets</a>
+      <a class="btn" routerLink="/expenses">Add expense</a>
+    </div>
   </header>
 
   <p class="error" *ngIf="error">{{ error }}</p>
@@ -18,16 +21,37 @@
   <div class="grid" *ngIf="summary">
     <article>
       <h2>By category</h2>
-      <ul *ngIf="summary.byCategory.length; else emptyCats">
-        <li *ngFor="let row of summary.byCategory">
-          <span>{{ row.categoryName }}</span>
-          <strong>{{ row.total | currency: summary.currency }}</strong>
-        </li>
-      </ul>
+      <div class="chart" *ngIf="summary.byCategory.length; else emptyCats">
+        <div class="chart-row" *ngFor="let row of summary.byCategory">
+          <div class="chart-label">
+            <span>{{ row.categoryName }}</span>
+            <strong>{{ row.total | currency: summary.currency }}</strong>
+          </div>
+          <div class="chart-bar">
+            <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
+          </div>
+        </div>
+      </div>
       <ng-template #emptyCats><p class="muted">No expenses this month yet.</p></ng-template>
     </article>
 
     <article>
+      <h2>Budgets</h2>
+      <ul *ngIf="budgets.length; else emptyBudgets">
+        <li *ngFor="let b of budgets" [class.over]="b.overBudget">
+          <div>
+            <strong>{{ b.categoryName }}</strong>
+            <small>{{ b.spentAmount | currency: b.currency }} / {{ b.limitAmount | currency: b.currency }}</small>
+          </div>
+          <span>{{ b.percentUsed }}%</span>
+        </li>
+      </ul>
+      <ng-template #emptyBudgets>
+        <p class="muted">No budgets yet. <a routerLink="/budgets">Create one</a></p>
+      </ng-template>
+    </article>
+
+    <article class="wide">
       <h2>Recent expenses</h2>
       <ul *ngIf="recent.length; else emptyRecent">
         <li *ngFor="let e of recent">
