@@ -13,7 +13,9 @@ Personal expense tracker with Spring Boot + Angular.
 - Register / login (JWT), roles: `USER` and `ADMIN`
 - Expenses & categories CRUD
 - Filters + pagination on expense list
-- Monthly summary by category
+- Monthly summary + category chart
+- Budgets with progress / over-budget
+- CSV export
 - Swagger UI
 - Tests with Testcontainers
 - `docker compose` for local run
@@ -84,6 +86,8 @@ Frontend expects the API at `http://localhost:8080/api` in dev.
 | POST | `/api/auth/login` | |
 | GET/POST/PUT/DELETE | `/api/categories` | |
 | GET/POST/PUT/DELETE | `/api/expenses` | query params for filters |
+| GET | `/api/expenses/export` | CSV download |
+| GET/POST/PUT/DELETE | `/api/budgets` | monthly limits |
 | GET | `/api/summary/monthly` | |
 | GET | `/api/admin/users` | ADMIN |
 | GET | `/api/admin/expenses` | ADMIN |
