@@ -1,9 +1,11 @@
 package com.spendly.config;
 
+import com.spendly.domain.Budget;
 import com.spendly.domain.Category;
 import com.spendly.domain.Expense;
 import com.spendly.domain.Role;
 import com.spendly.domain.User;
+import com.spendly.repository.BudgetRepository;
 import com.spendly.repository.CategoryRepository;
 import com.spendly.repository.ExpenseRepository;
 import com.spendly.repository.UserRepository;
@@ -27,6 +29,7 @@ public class DataSeeder {
             UserRepository userRepository,
             CategoryRepository categoryRepository,
             ExpenseRepository expenseRepository,
+            BudgetRepository budgetRepository,
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
@@ -61,6 +64,9 @@ public class DataSeeder {
             expenseRepository.save(expense(demo, categories.get(2), "850.00", today.withDayOfMonth(1), "Monthly rent"));
             expenseRepository.save(expense(demo, categories.get(3), "45.00", today.minusDays(5), "Cinema"));
 
+            budgetRepository.save(budget(demo, null, "1200.00", today.getYear(), today.getMonthValue()));
+            budgetRepository.save(budget(demo, categories.get(0), "200.00", today.getYear(), today.getMonthValue()));
+
             log.info("Demo users ready (see README)");
         };
     }
@@ -82,5 +88,15 @@ public class DataSeeder {
         e.setSpentOn(spentOn);
         e.setDescription(description);
         return e;
+    }
+
+    private static Budget budget(User user, Category category, String amount, int year, int month) {
+        Budget b = new Budget();
+        b.setUser(user);
+        b.setCategory(category);
+        b.setAmount(new BigDecimal(amount));
+        b.setYear(year);
+        b.setMonth(month);
+        return b;
     }
 }
