@@ -13,9 +13,10 @@ Personal expense tracker with Spring Boot + Angular.
 - Register / login (JWT), roles: `USER` and `ADMIN`
 - Expenses & categories CRUD
 - Filters + pagination on expense list
-- Monthly summary + category chart
+- Monthly dashboard with month picker + category chart
 - Budgets with progress / over-budget
 - CSV export
+- Admin UI (users + all expenses)
 - Swagger UI
 - Tests with Testcontainers
 - `docker compose` for local run
@@ -48,6 +49,10 @@ Postgres is on host port **5433**, API on **8081** (so they don't clash with oth
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ![Expenses](docs/screenshots/expenses.png)
+
+![Budgets](docs/screenshots/budgets.png)
+
+![Admin](docs/screenshots/admin.png)
 
 ![Swagger](docs/screenshots/swagger.png)
 
