@@ -2,7 +2,7 @@
   <header>
     <div>
       <h1>Dashboard</h1>
-      <p>Monthly overview and recent activity</p>
+      <p>Overview for {{ monthLabel() }}</p>
     </div>
     <div class="actions">
       <a class="btn ghost" routerLink="/budgets">Budgets</a>
@@ -10,59 +10,74 @@
     </div>
   </header>
 
+  <form class="period" [formGroup]="period" (ngSubmit)="reload()">
+    <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">‹</button>
+    <select formControlName="month" (change)="reload()">
+      <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
+    </select>
+    <input type="number" formControlName="year" (change)="reload()" />
+    <button type="button" class="ghost" (click)="shiftMonth(1)" aria-label="Next month">›</button>
+  </form>
+
   <p class="error" *ngIf="error">{{ error }}</p>
-  <p *ngIf="loading">Loading…</p>
+  <p class="muted" *ngIf="loading">Loading dashboard…</p>
 
-  <div class="hero-stat" *ngIf="summary">
-    <span>This month</span>
-    <strong>{{ summary.totalAmount | currency: summary.currency }}</strong>
-  </div>
+  <ng-container *ngIf="!loading && summary">
+    <div class="hero-stat">
+      <span>{{ monthLabel() }}</span>
+      <strong>{{ summary.totalAmount | currency: summary.currency }}</strong>
+    </div>
 
-  <div class="grid" *ngIf="summary">
-    <article>
-      <h2>By category</h2>
-      <div class="chart" *ngIf="summary.byCategory.length; else emptyCats">
-        <div class="chart-row" *ngFor="let row of summary.byCategory">
-          <div class="chart-label">
-            <span>{{ row.categoryName }}</span>
-            <strong>{{ row.total | currency: summary.currency }}</strong>
-          </div>
-          <div class="chart-bar">
-            <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
+    <div class="grid">
+      <article>
+        <h2>By category</h2>
+        <div class="chart" *ngIf="summary.byCategory.length; else emptyCats">
+          <div class="chart-row" *ngFor="let row of summary.byCategory">
+            <div class="chart-label">
+              <span>{{ row.categoryName }}</span>
+              <strong>{{ row.total | currency: summary.currency }}</strong>
+            </div>
+            <div class="chart-bar">
+              <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
+            </div>
           </div>
         </div>
-      </div>
-      <ng-template #emptyCats><p class="muted">No expenses this month yet.</p></ng-template>
-    </article>
+        <ng-template #emptyCats>
+          <p class="empty">No spending in this month yet.</p>
+        </ng-template>
+      </article>
 
-    <article>
-      <h2>Budgets</h2>
-      <ul *ngIf="budgets.length; else emptyBudgets">
-        <li *ngFor="let b of budgets" [class.over]="b.overBudget">
-          <div>
-            <strong>{{ b.categoryName }}</strong>
-            <small>{{ b.spentAmount | currency: b.currency }} / {{ b.limitAmount | currency: b.currency }}</small>
-          </div>
-          <span>{{ b.percentUsed }}%</span>
-        </li>
-      </ul>
-      <ng-template #emptyBudgets>
-        <p class="muted">No budgets yet. <a routerLink="/budgets">Create one</a></p>
-      </ng-template>
-    </article>
+      <article>
+        <h2>Budgets</h2>
+        <ul *ngIf="budgets.length; else emptyBudgets">
+          <li *ngFor="let b of budgets" [class.over]="b.overBudget">
+            <div>
+              <strong>{{ b.categoryName }}</strong>
+              <small>{{ b.spentAmount | currency: b.currency }} / {{ b.limitAmount | currency: b.currency }}</small>
+            </div>
+            <span>{{ b.percentUsed }}%</span>
+          </li>
+        </ul>
+        <ng-template #emptyBudgets>
+          <p class="empty">No budgets for this month. <a routerLink="/budgets">Set a limit</a></p>
+        </ng-template>
+      </article>
 
-    <article class="wide">
-      <h2>Recent expenses</h2>
-      <ul *ngIf="recent.length; else emptyRecent">
-        <li *ngFor="let e of recent">
-          <div>
-            <strong>{{ e.description || e.categoryName }}</strong>
-            <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
-          </div>
-          <span>{{ e.amount | currency: e.currency }}</span>
-        </li>
-      </ul>
-      <ng-template #emptyRecent><p class="muted">No expenses yet.</p></ng-template>
-    </article>
-  </div>
+      <article class="wide">
+        <h2>Recent expenses</h2>
+        <ul *ngIf="recent.length; else emptyRecent">
+          <li *ngFor="let e of recent">
+            <div>
+              <strong>{{ e.description || e.categoryName }}</strong>
+              <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
+            </div>
+            <span>{{ e.amount | currency: e.currency }}</span>
+          </li>
+        </ul>
+        <ng-template #emptyRecent>
+          <p class="empty">Nothing recorded for this month. <a routerLink="/expenses">Add an expense</a></p>
+        </ng-template>
+      </article>
+    </div>
+  </ng-container>
 </section>

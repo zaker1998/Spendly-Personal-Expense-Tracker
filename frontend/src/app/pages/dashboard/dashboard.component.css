@@ -16,6 +16,37 @@ header {
   flex-wrap: wrap;
 }
 
+.period {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.period input,
+.period select,
+.period .ghost {
+  font: inherit;
+  border-radius: 10px;
+  border: 1px solid #d5dde1;
+  padding: 0.45rem 0.65rem;
+  background: #fff;
+}
+
+.period .ghost {
+  cursor: pointer;
+  min-width: 2.2rem;
+}
+
+.period input {
+  width: 5.5rem;
+}
+
+.empty {
+  margin: 0.8rem 0 0;
+  color: #5c6b73;
+}
+
 h1,
 h2,
 p {
