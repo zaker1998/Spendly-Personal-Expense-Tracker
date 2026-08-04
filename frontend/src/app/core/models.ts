@@ -63,3 +63,23 @@ export interface Budget {
   month: number;
   currency: string;
 }
+
+export interface AppUser {
+  id: number;
+  email: string;
+  role: Role;
+  createdAt: string;
+}
+
+export interface AdminExpense {
+  id: number;
+  userId: number;
+  userEmail: string;
+  categoryId: number;
+  categoryName: string;
+  amount: number;
+  currency: string;
+  spentOn: string;
+  description: string | null;
+  createdAt: string;
+}

@@ -2,7 +2,15 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Budget, Category, Expense, MonthlySummary, PageResponse } from './models';
+import {
+  AdminExpense,
+  AppUser,
+  Budget,
+  Category,
+  Expense,
+  MonthlySummary,
+  PageResponse
+} from './models';
 
 export interface ExpenseFilters {
   categoryId?: number | null;
@@ -124,5 +132,16 @@ export class ApiService {
       params,
       responseType: 'blob'
     });
+  }
+
+  getAdminUsers(): Observable<AppUser[]> {
+    return this.http.get<AppUser[]>(`${environment.apiUrl}/admin/users`);
+  }
+
+  getAdminExpenses(filters: { from?: string | null; to?: string | null } = {}): Observable<AdminExpense[]> {
+    let params = new HttpParams();
+    if (filters.from) params = params.set('from', filters.from);
+    if (filters.to) params = params.set('to', filters.to);
+    return this.http.get<AdminExpense[]>(`${environment.apiUrl}/admin/expenses`, { params });
   }
 }
