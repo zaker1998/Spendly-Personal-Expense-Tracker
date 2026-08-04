@@ -45,15 +45,25 @@ public class ExpenseService {
             String search,
             Pageable pageable
     ) {
+        boolean hasCategory = categoryId != null;
+        boolean hasFrom = fromDate != null;
+        boolean hasTo = toDate != null;
+        boolean hasMin = minAmount != null;
+        boolean hasMax = maxAmount != null;
         boolean hasSearch = search != null && !search.isBlank();
         String searchPattern = hasSearch ? "%" + search.trim().toLowerCase() + "%" : "%";
         return expenseRepository.findFiltered(
                         userId,
-                        categoryId,
-                        fromDate,
-                        toDate,
-                        minAmount,
-                        maxAmount,
+                        hasCategory,
+                        hasCategory ? categoryId : 0L,
+                        hasFrom,
+                        hasFrom ? fromDate : LocalDate.EPOCH,
+                        hasTo,
+                        hasTo ? toDate : LocalDate.EPOCH,
+                        hasMin,
+                        hasMin ? minAmount : BigDecimal.ZERO,
+                        hasMax,
+                        hasMax ? maxAmount : BigDecimal.ZERO,
                         hasSearch,
                         searchPattern,
                         pageable)
@@ -98,7 +108,17 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public List<AdminExpenseResponse> listAllForAdmin(Long categoryId, LocalDate fromDate, LocalDate toDate) {
-        return expenseRepository.findAllForAdmin(categoryId, fromDate, toDate).stream()
+        boolean hasCategory = categoryId != null;
+        boolean hasFrom = fromDate != null;
+        boolean hasTo = toDate != null;
+        return expenseRepository.findAllForAdmin(
+                        hasCategory,
+                        hasCategory ? categoryId : 0L,
+                        hasFrom,
+                        hasFrom ? fromDate : LocalDate.EPOCH,
+                        hasTo,
+                        hasTo ? toDate : LocalDate.EPOCH)
+                .stream()
                 .map(e -> new AdminExpenseResponse(
                         e.getId(),
                         e.getUser().getId(),

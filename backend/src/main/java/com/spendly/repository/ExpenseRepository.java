@@ -25,19 +25,24 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     @Query("""
             SELECT e FROM Expense e
             WHERE e.user.id = :userId
-              AND (:categoryId IS NULL OR e.category.id = :categoryId)
-              AND (:fromDate IS NULL OR e.spentOn >= :fromDate)
-              AND (:toDate IS NULL OR e.spentOn <= :toDate)
-              AND (:minAmount IS NULL OR e.amount >= :minAmount)
-              AND (:maxAmount IS NULL OR e.amount <= :maxAmount)
+              AND (:hasCategory = false OR e.category.id = :categoryId)
+              AND (:hasFrom = false OR e.spentOn >= :fromDate)
+              AND (:hasTo = false OR e.spentOn <= :toDate)
+              AND (:hasMin = false OR e.amount >= :minAmount)
+              AND (:hasMax = false OR e.amount <= :maxAmount)
               AND (:hasSearch = false OR LOWER(COALESCE(e.description, '')) LIKE :searchPattern)
             """)
     Page<Expense> findFiltered(
             @Param("userId") Long userId,
+            @Param("hasCategory") boolean hasCategory,
             @Param("categoryId") Long categoryId,
+            @Param("hasFrom") boolean hasFrom,
             @Param("fromDate") LocalDate fromDate,
+            @Param("hasTo") boolean hasTo,
             @Param("toDate") LocalDate toDate,
+            @Param("hasMin") boolean hasMin,
             @Param("minAmount") BigDecimal minAmount,
+            @Param("hasMax") boolean hasMax,
             @Param("maxAmount") BigDecimal maxAmount,
             @Param("hasSearch") boolean hasSearch,
             @Param("searchPattern") String searchPattern,
@@ -47,14 +52,17 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     @EntityGraph(attributePaths = {"category", "user"})
     @Query("""
             SELECT e FROM Expense e
-            WHERE (:categoryId IS NULL OR e.category.id = :categoryId)
-              AND (:fromDate IS NULL OR e.spentOn >= :fromDate)
-              AND (:toDate IS NULL OR e.spentOn <= :toDate)
+            WHERE (:hasCategory = false OR e.category.id = :categoryId)
+              AND (:hasFrom = false OR e.spentOn >= :fromDate)
+              AND (:hasTo = false OR e.spentOn <= :toDate)
             ORDER BY e.spentOn DESC
             """)
     List<Expense> findAllForAdmin(
+            @Param("hasCategory") boolean hasCategory,
             @Param("categoryId") Long categoryId,
+            @Param("hasFrom") boolean hasFrom,
             @Param("fromDate") LocalDate fromDate,
+            @Param("hasTo") boolean hasTo,
             @Param("toDate") LocalDate toDate
     );
 
