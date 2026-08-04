@@ -6,6 +6,9 @@
       <a routerLink="/expenses" routerLinkActive="active">Expenses</a>
       <a routerLink="/categories" routerLinkActive="active">Categories</a>
       <a routerLink="/budgets" routerLinkActive="active">Budgets</a>
+      @if (auth.isAdmin()) {
+        <a routerLink="/admin" routerLinkActive="active">Admin</a>
+      }
     </nav>
     <div class="user">
       <span>{{ auth.session()?.email }}</span>

@@ -1,0 +1,77 @@
+.page {
+  display: grid;
+  gap: 1rem;
+}
+
+header h1,
+header p {
+  margin: 0;
+}
+
+header p,
+.muted {
+  color: #5c6b73;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tabs button,
+.filters button,
+.filters input {
+  font: inherit;
+  border-radius: 10px;
+  border: 1px solid #d5dde1;
+  padding: 0.55rem 0.8rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.tabs button.active,
+.filters button {
+  background: #264653;
+  color: #fff;
+  border-color: #264653;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(38, 70, 83, 0.08);
+  border-radius: 16px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.65rem 0.35rem;
+  border-bottom: 1px solid #e7ecee;
+}
+
+.role {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #e8f3f1;
+  color: #264653;
+  font-size: 0.85rem;
+}
+
+.error {
+  color: #b23a28;
+}
