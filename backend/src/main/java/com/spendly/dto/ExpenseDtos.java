@@ -1,6 +1,7 @@
 package com.spendly.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -32,6 +33,23 @@ public final class ExpenseDtos {
             String description,
             Instant createdAt,
             Instant updatedAt
+    ) {
+    }
+
+    public record SuggestCategoryRequest(
+            @NotBlank @Size(max = 500) String description
+    ) {
+    }
+
+    /**
+     * source is "AI" when the suggestion came from the LLM, "HEURISTIC" for the
+     * keyword fallback, and "NONE" when no confident match was found
+     * (categoryId/categoryName are null in that case).
+     */
+    public record SuggestCategoryResponse(
+            Long categoryId,
+            String categoryName,
+            String source
     ) {
     }
 

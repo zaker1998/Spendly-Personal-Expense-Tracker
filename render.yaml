@@ -19,3 +19,7 @@ services:
         fromDatabase:
           name: spendly-db
           property: connectionString
+      # Optional: enables LLM-based category suggestions; without it the
+      # endpoint falls back to the built-in keyword heuristic.
+      - key: OPENAI_API_KEY
+        sync: false

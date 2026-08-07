@@ -27,6 +27,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: spendly
       JWT_SECRET: spendly-dev-secret-key-change-me-in-production-32chars-min
       CORS_ALLOWED_ORIGINS: http://localhost:4200,http://localhost
+      # Optional: enables LLM category suggestions (falls back to heuristic if unset)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "8081:8080"
     depends_on:

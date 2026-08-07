@@ -2,7 +2,10 @@ package com.spendly.web;
 
 import com.spendly.dto.ExpenseDtos.ExpenseRequest;
 import com.spendly.dto.ExpenseDtos.ExpenseResponse;
+import com.spendly.dto.ExpenseDtos.SuggestCategoryRequest;
+import com.spendly.dto.ExpenseDtos.SuggestCategoryResponse;
 import com.spendly.security.SecurityUtils;
+import com.spendly.service.CategorySuggestionService;
 import com.spendly.service.ExpenseExportService;
 import com.spendly.service.ExpenseService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,10 +40,16 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
     private final ExpenseExportService expenseExportService;
+    private final CategorySuggestionService categorySuggestionService;
 
-    public ExpenseController(ExpenseService expenseService, ExpenseExportService expenseExportService) {
+    public ExpenseController(
+            ExpenseService expenseService,
+            ExpenseExportService expenseExportService,
+            CategorySuggestionService categorySuggestionService
+    ) {
         this.expenseService = expenseService;
         this.expenseExportService = expenseExportService;
+        this.categorySuggestionService = categorySuggestionService;
     }
 
     @GetMapping
@@ -93,6 +102,11 @@ public class ExpenseController {
     @GetMapping("/{id}")
     public ExpenseResponse get(@PathVariable Long id) {
         return expenseService.get(SecurityUtils.currentUserId(), id);
+    }
+
+    @PostMapping("/suggest-category")
+    public SuggestCategoryResponse suggestCategory(@Valid @RequestBody SuggestCategoryRequest request) {
+        return categorySuggestionService.suggest(SecurityUtils.currentUserId(), request.description());
     }
 
     @PostMapping

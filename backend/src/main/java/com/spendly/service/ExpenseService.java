@@ -23,15 +23,18 @@ public class ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
     private final CategoryService categoryService;
+    private final SummaryCacheEvictor summaryCacheEvictor;
 
     public ExpenseService(
             ExpenseRepository expenseRepository,
             UserRepository userRepository,
-            CategoryService categoryService
+            CategoryService categoryService,
+            SummaryCacheEvictor summaryCacheEvictor
     ) {
         this.expenseRepository = expenseRepository;
         this.userRepository = userRepository;
         this.categoryService = categoryService;
+        this.summaryCacheEvictor = summaryCacheEvictor;
     }
 
     @Transactional(readOnly = true)
@@ -86,6 +89,7 @@ public class ExpenseService {
         expense.setUser(user);
         expense.setCategory(category);
         applyRequest(expense, request);
+        summaryCacheEvictor.evictMonth(userId, request.spentOn());
         return toResponse(expenseRepository.save(expense));
     }
 
@@ -94,6 +98,10 @@ public class ExpenseService {
         Expense expense = expenseRepository.findByIdAndUserIdWithCategory(expenseId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         Category category = categoryService.getOwnedOrThrow(userId, request.categoryId());
+        // The expense may move between months, so both the old and new summary
+        // entries must be invalidated.
+        summaryCacheEvictor.evictMonth(userId, expense.getSpentOn());
+        summaryCacheEvictor.evictMonth(userId, request.spentOn());
         expense.setCategory(category);
         applyRequest(expense, request);
         return toResponse(expense);
@@ -103,6 +111,7 @@ public class ExpenseService {
     public void delete(Long userId, Long expenseId) {
         Expense expense = expenseRepository.findByIdAndUserIdWithCategory(expenseId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        summaryCacheEvictor.evictMonth(userId, expense.getSpentOn());
         expenseRepository.delete(expense);
     }
 
