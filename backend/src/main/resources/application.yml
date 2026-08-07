@@ -21,6 +21,12 @@ server:
   port: 8080
 
 spendly:
+  ai:
+    enabled: ${AI_SUGGESTIONS_ENABLED:true}
+    api-key: ${OPENAI_API_KEY:}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+    timeout-ms: ${AI_TIMEOUT_MS:5000}
   jwt:
     secret: ${JWT_SECRET:spendly-dev-secret-key-change-me-in-production-32chars-min}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}

@@ -7,6 +7,7 @@ import {
   AppUser,
   Budget,
   Category,
+  CategorySuggestion,
   Expense,
   MonthlySummary,
   PageResponse
@@ -84,6 +85,12 @@ export class ApiService {
 
   deleteExpense(id: number): Observable<void> {
     return this.http.delete<void>(`${environment.apiUrl}/expenses/${id}`);
+  }
+
+  suggestCategory(description: string): Observable<CategorySuggestion> {
+    return this.http.post<CategorySuggestion>(`${environment.apiUrl}/expenses/suggest-category`, {
+      description
+    });
   }
 
   getMonthlySummary(year?: number, month?: number): Observable<MonthlySummary> {
