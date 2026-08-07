@@ -64,6 +64,12 @@ export interface Budget {
   currency: string;
 }
 
+export interface CategorySuggestion {
+  categoryId: number | null;
+  categoryName: string | null;
+  source: 'AI' | 'HEURISTIC' | 'NONE';
+}
+
 export interface AppUser {
   id: number;
   email: string;

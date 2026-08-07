@@ -29,9 +29,13 @@
       <input type="number" step="0.01" formControlName="amount" placeholder="Amount" />
       <input type="date" formControlName="spentOn" />
       <input type="text" formControlName="description" placeholder="Description" />
+      <button type="button" class="ghost" [disabled]="suggesting" (click)="suggestCategory()">
+        {{ suggesting ? 'Suggesting…' : 'Suggest category' }}
+      </button>
       <button type="submit">{{ editingId ? 'Update' : 'Add' }}</button>
       <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
     </div>
+    <p class="muted" *ngIf="suggestionNote">{{ suggestionNote }}</p>
   </form>
 
   <div class="panel table-wrap">

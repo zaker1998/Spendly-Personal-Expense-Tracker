@@ -21,6 +21,8 @@ export class ExpensesComponent implements OnInit {
   page = 0;
   error = '';
   editingId: number | null = null;
+  suggesting = false;
+  suggestionNote = '';
 
   filters = this.fb.nonNullable.group({
     categoryId: [''],
@@ -96,6 +98,32 @@ export class ExpensesComponent implements OnInit {
         this.load(this.page);
       },
       error: (err) => (this.error = err?.error?.message ?? 'Save failed')
+    });
+  }
+
+  suggestCategory(): void {
+    const description = this.form.value.description?.trim();
+    if (!description) {
+      this.suggestionNote = 'Type a description first';
+      return;
+    }
+    this.suggesting = true;
+    this.suggestionNote = '';
+    this.api.suggestCategory(description).subscribe({
+      next: (s) => {
+        this.suggesting = false;
+        if (s.categoryId != null) {
+          this.form.patchValue({ categoryId: String(s.categoryId) });
+          this.suggestionNote =
+            s.source === 'AI' ? `AI suggests: ${s.categoryName}` : `Suggested: ${s.categoryName}`;
+        } else {
+          this.suggestionNote = 'No suggestion found';
+        }
+      },
+      error: () => {
+        this.suggesting = false;
+        this.suggestionNote = 'Suggestion failed';
+      }
     });
   }
 
