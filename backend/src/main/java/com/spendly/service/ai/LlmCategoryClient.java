@@ -14,27 +14,26 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /**
- * Calls the OpenAI Chat Completions API to classify an expense description
- * into one of the user's category names.
+ * Calls a chat-completions style LLM API (Groq by default) to classify an
+ * expense description into one of the user's category names.
  *
  * The model is constrained to answer with exactly one of the provided names;
- * the response is still validated upstream against the user's real categories,
- * so a hallucinated answer can never leak into the database.
+ * the response is still validated upstream against the user's real categories.
  */
 @Component
-public class OpenAiCategoryClient implements AiCategoryClient {
+public class LlmCategoryClient implements AiCategoryClient {
 
-    private static final Logger log = LoggerFactory.getLogger(OpenAiCategoryClient.class);
+    private static final Logger log = LoggerFactory.getLogger(LlmCategoryClient.class);
 
     private final boolean enabled;
     private final String model;
     private final RestClient restClient;
 
-    public OpenAiCategoryClient(
+    public LlmCategoryClient(
             @Value("${spendly.ai.enabled:true}") boolean enabled,
             @Value("${spendly.ai.api-key:}") String apiKey,
-            @Value("${spendly.ai.base-url:https://api.openai.com/v1}") String baseUrl,
-            @Value("${spendly.ai.model:gpt-4o-mini}") String model,
+            @Value("${spendly.ai.base-url:https://api.groq.com/openai/v1}") String baseUrl,
+            @Value("${spendly.ai.model:llama-3.1-8b-instant}") String model,
             @Value("${spendly.ai.timeout-ms:5000}") int timeoutMs
     ) {
         this.enabled = enabled && apiKey != null && !apiKey.isBlank();
@@ -87,8 +86,6 @@ public class OpenAiCategoryClient implements AiCategoryClient {
             String content = response.choices().get(0).message().content();
             return Optional.ofNullable(content).map(String::trim).filter(s -> !s.isEmpty());
         } catch (Exception e) {
-            // Any provider failure (timeout, rate limit, bad key) degrades to the
-            // heuristic fallback instead of breaking the endpoint.
             log.warn("AI category suggestion failed, falling back to heuristic: {}", e.getMessage());
             return Optional.empty();
         }

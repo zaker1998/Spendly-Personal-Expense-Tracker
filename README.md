@@ -4,7 +4,7 @@ Personal expense tracker with Spring Boot + Angular.
 
 **Live:** https://spendly-33ek.onrender.com
 
-**Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, OpenAI API
+**Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI
 
 [![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
 
@@ -42,7 +42,7 @@ flowchart LR
     end
 
     DB[(PostgreSQL<br/>Flyway migrations)]
-    LLM[OpenAI API]
+    LLM[Groq API]
 
     NG -->|"HTTPS /api (Bearer token)"| SEC --> API --> SVC
     SVC --> CACHE
@@ -79,22 +79,23 @@ Postgres is on host port **5433**, API on **8081** (so they don't clash with oth
 | `demo@spendly.app` | `Demo123!` | USER |
 | `admin@spendly.app` | `Admin123!` | ADMIN |
 
-### AI suggestions (optional)
+### AI suggestions (optional, Groq)
 
-Set `OPENAI_API_KEY` to enable LLM-based category suggestions:
+Uses Groq’s free API by default. Get a key at [console.groq.com](https://console.groq.com/keys).
 
 ```bash
-OPENAI_API_KEY=sk-... docker compose up --build
+AI_API_KEY=gsk_... docker compose up --build
 ```
 
-Without a key the *Suggest category* button still works using the built-in keyword heuristic.
+On Render: set only `AI_API_KEY` to your Groq key. Base URL and model already default in the app config.
+
+Without a key, *Suggest category* still works via the keyword heuristic.
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `OPENAI_API_KEY` | *(empty — heuristic only)* | Enables LLM suggestions |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model |
+| `AI_API_KEY` | *(empty — heuristic only)* | Groq API key |
+| `AI_MODEL` | `llama-3.1-8b-instant` | Optional override |
 | `AI_SUGGESTIONS_ENABLED` | `true` | Kill switch |
-| `AI_TIMEOUT_MS` | `5000` | Provider timeout before falling back |
 
 ## Screenshots
 
