@@ -19,6 +19,8 @@ Personal expense tracker with Spring Boot + Angular.
 - Monthly dashboard with month picker + category chart, **cached with Caffeine**
 - Budgets with progress / over-budget
 - CSV export
+- **Rate limiting** on auth + AI endpoints (per-IP fixed window, HTTP 429 + `Retry-After`)
+- Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s
 - Admin UI (users + all expenses)
 - Swagger UI
 - Unit tests + integration tests against real PostgreSQL via Testcontainers
@@ -57,6 +59,7 @@ flowchart LR
 - **AI suggestions are validated server-side** — the LLM is asked to pick from the user's own category names, and its answer is checked against the database before being returned. A hallucinated category can never reach the client. On any provider failure (timeout, rate limit, missing key) the endpoint degrades to a keyword heuristic instead of erroring.
 - **Caffeine instead of Redis for caching** — the app runs as a single instance, so an in-process cache gives the same latency win without extra infrastructure. Writes evict exactly the affected user+month entry, not the whole cache; a 10-minute TTL bounds staleness.
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
+- **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis.
 
 ## Run locally
 
@@ -96,6 +99,14 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 | `AI_API_KEY` | *(empty — heuristic only)* | Groq API key |
 | `AI_MODEL` | `llama-3.1-8b-instant` | Optional override |
 | `AI_SUGGESTIONS_ENABLED` | `true` | Kill switch |
+
+### Rate limiting
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `RATE_LIMIT_ENABLED` | `true` | Kill switch |
+| `RATE_LIMIT_AUTH_PER_MINUTE` | `10` | Per IP, `/api/auth/**` |
+| `RATE_LIMIT_AI_PER_MINUTE` | `30` | Per IP, AI suggestions |
 
 ## Screenshots
 
@@ -160,7 +171,7 @@ cd backend
 mvn test
 ```
 
-Unit tests (Mockito) cover services including the AI suggestion fallback logic; integration tests (Testcontainers + MockMvc) exercise the full HTTP → database path against real PostgreSQL.
+Unit tests (Mockito) cover services including the AI suggestion fallback logic and the rate limiter; integration tests (Testcontainers + MockMvc) exercise the full HTTP → database path against real PostgreSQL, including security behaviour: 401 for anonymous requests, 400 (not 500) for invalid query params, and cross-user isolation (user B cannot read user A's expense).
 
 ## License
 

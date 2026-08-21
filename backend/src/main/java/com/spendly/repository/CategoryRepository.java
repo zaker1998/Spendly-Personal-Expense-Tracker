@@ -17,4 +17,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     @Query("SELECT COUNT(e) FROM Expense e WHERE e.category.id = :categoryId")
     long countExpensesByCategoryId(@Param("categoryId") Long categoryId);
+
+    @Query("SELECT COUNT(b) FROM Budget b WHERE b.category.id = :categoryId")
+    long countBudgetsByCategoryId(@Param("categoryId") Long categoryId);
 }

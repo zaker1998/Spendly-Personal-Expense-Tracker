@@ -30,7 +30,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
               AND (:hasTo = false OR e.spentOn <= :toDate)
               AND (:hasMin = false OR e.amount >= :minAmount)
               AND (:hasMax = false OR e.amount <= :maxAmount)
-              AND (:hasSearch = false OR LOWER(COALESCE(e.description, '')) LIKE :searchPattern)
+              AND (:hasSearch = false OR LOWER(COALESCE(e.description, '')) LIKE :searchPattern ESCAPE '\\')
             """)
     Page<Expense> findFiltered(
             @Param("userId") Long userId,
