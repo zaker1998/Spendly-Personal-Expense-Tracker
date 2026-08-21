@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
+import { localToday } from '../../core/date-utils';
 import { Category, Expense } from '../../core/models';
 
 @Component({
@@ -14,11 +15,15 @@ import { Category, Expense } from '../../core/models';
 export class ExpensesComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
+  /** Guards against out-of-order responses when filters/pages change quickly. */
+  private loadSeq = 0;
 
   categories: Category[] = [];
   expenses: Expense[] = [];
   totalElements = 0;
   page = 0;
+  loading = false;
+  saving = false;
   error = '';
   editingId: number | null = null;
   suggesting = false;
@@ -34,7 +39,7 @@ export class ExpensesComponent implements OnInit {
   form = this.fb.nonNullable.group({
     categoryId: ['', Validators.required],
     amount: [0, [Validators.required, Validators.min(0.01)]],
-    spentOn: [new Date().toISOString().slice(0, 10), Validators.required],
+    spentOn: [localToday(), Validators.required],
     description: [''],
     currency: ['EUR']
   });
@@ -46,13 +51,16 @@ export class ExpensesComponent implements OnInit {
         if (cats.length && !this.form.value.categoryId) {
           this.form.patchValue({ categoryId: String(cats[0].id) });
         }
-      }
+      },
+      error: () => (this.error = 'Failed to load categories')
     });
     this.load();
   }
 
   load(page = 0): void {
     this.page = page;
+    this.loading = true;
+    const seq = ++this.loadSeq;
     const f = this.filters.getRawValue();
     this.api
       .getExpenses({
@@ -65,10 +73,21 @@ export class ExpensesComponent implements OnInit {
       })
       .subscribe({
         next: (res) => {
+          if (seq !== this.loadSeq) {
+            return;
+          }
           this.expenses = res.content;
           this.totalElements = res.totalElements;
+          this.loading = false;
+          this.error = '';
         },
-        error: () => (this.error = 'Failed to load expenses')
+        error: () => {
+          if (seq !== this.loadSeq) {
+            return;
+          }
+          this.loading = false;
+          this.error = 'Failed to load expenses';
+        }
       });
   }
 
@@ -91,13 +110,19 @@ export class ExpensesComponent implements OnInit {
         ? this.api.createExpense(body)
         : this.api.updateExpense(this.editingId, body);
 
+    this.saving = true;
     req$.subscribe({
       next: () => {
+        this.saving = false;
+        this.error = '';
         this.editingId = null;
-        this.form.patchValue({ amount: 0, description: '', spentOn: new Date().toISOString().slice(0, 10) });
+        this.resetForm();
         this.load(this.page);
       },
-      error: (err) => (this.error = err?.error?.message ?? 'Save failed')
+      error: (err) => {
+        this.saving = false;
+        this.error = err?.error?.message ?? 'Save failed';
+      }
     });
   }
 
@@ -138,16 +163,25 @@ export class ExpensesComponent implements OnInit {
     });
   }
 
-  remove(id: number): void {
-    this.api.deleteExpense(id).subscribe({
-      next: () => this.load(this.page),
+  remove(expense: Expense): void {
+    if (!confirm(`Delete this expense (${expense.description || expense.categoryName})?`)) {
+      return;
+    }
+    this.api.deleteExpense(expense.id).subscribe({
+      next: () => {
+        this.error = '';
+        // If this was the last row on the current page, step back one page
+        // instead of reloading an empty page.
+        const targetPage = this.expenses.length === 1 && this.page > 0 ? this.page - 1 : this.page;
+        this.load(targetPage);
+      },
       error: (err) => (this.error = err?.error?.message ?? 'Delete failed')
     });
   }
 
   cancelEdit(): void {
     this.editingId = null;
-    this.form.patchValue({ amount: 0, description: '' });
+    this.resetForm();
   }
 
   exportCsv(): void {
@@ -170,5 +204,15 @@ export class ExpensesComponent implements OnInit {
         },
         error: () => (this.error = 'Export failed')
       });
+  }
+
+  private resetForm(): void {
+    this.form.patchValue({
+      amount: 0,
+      description: '',
+      spentOn: localToday(),
+      currency: 'EUR',
+      categoryId: this.categories.length ? String(this.categories[0].id) : ''
+    });
   }
 }

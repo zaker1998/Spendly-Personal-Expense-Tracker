@@ -17,5 +17,9 @@
 
     <button type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
     <p class="footer">No account? <a routerLink="/register">Create one</a></p>
+    <p class="footer">
+      Just looking around?
+      <a href="#" (click)="fillDemo(); $event.preventDefault()">Use the demo account</a>
+    </p>
   </form>
 </section>

@@ -17,6 +17,7 @@ export class CategoriesComponent implements OnInit {
 
   categories: Category[] = [];
   error = '';
+  saving = false;
   editingId: number | null = null;
 
   form = this.fb.nonNullable.group({
@@ -30,7 +31,10 @@ export class CategoriesComponent implements OnInit {
 
   reload(): void {
     this.api.getCategories().subscribe({
-      next: (cats) => (this.categories = cats),
+      next: (cats) => {
+        this.categories = cats;
+        this.error = '';
+      },
       error: () => (this.error = 'Failed to load categories')
     });
   }
@@ -46,13 +50,19 @@ export class CategoriesComponent implements OnInit {
         ? this.api.createCategory(body)
         : this.api.updateCategory(this.editingId, body);
 
+    this.saving = true;
     req$.subscribe({
       next: () => {
+        this.saving = false;
+        this.error = '';
         this.editingId = null;
         this.form.reset({ name: '', color: '#2A9D8F' });
         this.reload();
       },
-      error: (err) => (this.error = err?.error?.message ?? 'Save failed')
+      error: (err) => {
+        this.saving = false;
+        this.error = err?.error?.message ?? 'Save failed';
+      }
     });
   }
 
@@ -64,9 +74,15 @@ export class CategoriesComponent implements OnInit {
     });
   }
 
-  remove(id: number): void {
-    this.api.deleteCategory(id).subscribe({
-      next: () => this.reload(),
+  remove(category: Category): void {
+    if (!confirm(`Delete category "${category.name}"?`)) {
+      return;
+    }
+    this.api.deleteCategory(category.id).subscribe({
+      next: () => {
+        this.error = '';
+        this.reload();
+      },
       error: (err) => (this.error = err?.error?.message ?? 'Delete failed')
     });
   }

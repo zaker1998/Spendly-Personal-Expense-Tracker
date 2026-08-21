@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { Budget, Expense, MonthlySummary } from '../../core/models';
 
@@ -15,6 +16,13 @@ import { Budget, Expense, MonthlySummary } from '../../core/models';
 export class DashboardComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
+  /** Guards against out-of-order responses when the month changes quickly. */
+  private loadSeq = 0;
+
+  readonly months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   summary: MonthlySummary | null = null;
   budgets: Budget[] = [];
@@ -39,34 +47,37 @@ export class DashboardComponent implements OnInit {
     const month = Number(this.period.controls.month.value);
     this.loading = true;
     this.error = '';
-
-    this.api.getMonthlySummary(year, month).subscribe({
-      next: (summary) => {
-        this.summary = summary;
-        this.maxCategoryTotal = summary.byCategory.reduce(
-          (max, row) => Math.max(max, Number(row.total)),
-          0
-        );
-        this.loading = false;
-      },
-      error: () => {
-        this.error = 'Could not load summary';
-        this.loading = false;
-      }
-    });
-
-    this.api.getBudgets(year, month).subscribe({
-      next: (budgets) => (this.budgets = budgets),
-      error: () => undefined
-    });
+    const seq = ++this.loadSeq;
 
     const from = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
     const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    this.api.getExpenses({ page: 0, size: 5, from, to }).subscribe({
-      next: (page) => (this.recent = page.content),
-      error: () => (this.error = 'Could not load recent expenses')
+    forkJoin({
+      summary: this.api.getMonthlySummary(year, month),
+      budgets: this.api.getBudgets(year, month),
+      recent: this.api.getExpenses({ page: 0, size: 5, from, to })
+    }).subscribe({
+      next: ({ summary, budgets, recent }) => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.summary = summary;
+        this.maxCategoryTotal = summary.byCategory.reduce(
+          (max, row) => Math.max(max, Number(row.total)),
+          0
+        );
+        this.budgets = budgets;
+        this.recent = recent.content;
+        this.loading = false;
+      },
+      error: () => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.error = 'Could not load dashboard data';
+        this.loading = false;
+      }
     });
   }
 

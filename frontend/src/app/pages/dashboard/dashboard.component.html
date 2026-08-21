@@ -12,8 +12,8 @@
 
   <form class="period" [formGroup]="period" (ngSubmit)="reload()">
     <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">‹</button>
-    <select formControlName="month" (change)="reload()">
-      <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
+    <select formControlName="month" (change)="reload()" aria-label="Month">
+      <option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</option>
     </select>
     <input type="number" formControlName="year" (change)="reload()" />
     <button type="button" class="ghost" (click)="shiftMonth(1)" aria-label="Next month">›</button>
@@ -69,7 +69,7 @@
           <li *ngFor="let e of recent">
             <div>
               <strong>{{ e.description || e.categoryName }}</strong>
-              <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
+              <small>{{ e.spentOn | date: 'mediumDate' : 'UTC' }} · {{ e.categoryName }}</small>
             </div>
             <span>{{ e.amount | currency: e.currency }}</span>
           </li>

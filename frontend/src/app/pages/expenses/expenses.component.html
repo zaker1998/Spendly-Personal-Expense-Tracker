@@ -32,7 +32,7 @@
       <button type="button" class="ghost" [disabled]="suggesting" (click)="suggestCategory()">
         {{ suggesting ? 'Suggesting…' : 'Suggest category' }}
       </button>
-      <button type="submit">{{ editingId ? 'Update' : 'Add' }}</button>
+      <button type="submit" [disabled]="saving">{{ saving ? 'Saving…' : editingId ? 'Update' : 'Add' }}</button>
       <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
     </div>
     <p class="muted" *ngIf="suggestionNote">{{ suggestionNote }}</p>
@@ -51,7 +51,7 @@
       </thead>
       <tbody>
         <tr *ngFor="let e of expenses">
-          <td>{{ e.spentOn | date: 'mediumDate' }}</td>
+          <td>{{ e.spentOn | date: 'mediumDate' : 'UTC' }}</td>
           <td>
             <span class="dot" [style.background]="e.categoryColor || '#999'"></span>
             {{ e.categoryName }}
@@ -60,12 +60,13 @@
           <td>{{ e.amount | currency: e.currency }}</td>
           <td class="actions">
             <button type="button" class="ghost" (click)="edit(e)">Edit</button>
-            <button type="button" class="danger" (click)="remove(e.id)">Delete</button>
+            <button type="button" class="danger" (click)="remove(e)">Delete</button>
           </td>
         </tr>
       </tbody>
     </table>
-    <p class="muted" *ngIf="!expenses.length">No expenses match your filters.</p>
+    <p class="muted" *ngIf="loading">Loading expenses…</p>
+    <p class="muted" *ngIf="!loading && !expenses.length">No expenses match your filters.</p>
     <div class="pager" *ngIf="totalElements > 10">
       <button type="button" class="ghost" [disabled]="page === 0" (click)="load(page - 1)">Previous</button>
       <span>Page {{ page + 1 }}</span>

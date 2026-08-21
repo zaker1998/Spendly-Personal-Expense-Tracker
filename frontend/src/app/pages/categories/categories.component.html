@@ -13,7 +13,7 @@
     <div class="row">
       <input type="text" formControlName="name" placeholder="Name" />
       <input type="color" formControlName="color" />
-      <button type="submit">{{ editingId ? 'Update' : 'Add' }}</button>
+      <button type="submit" [disabled]="saving">{{ saving ? 'Saving…' : editingId ? 'Update' : 'Add' }}</button>
       <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
     </div>
   </form>
@@ -26,7 +26,7 @@
       </div>
       <div class="actions">
         <button type="button" class="ghost" (click)="edit(c)">Edit</button>
-        <button type="button" class="danger" (click)="remove(c.id)">Delete</button>
+        <button type="button" class="danger" (click)="remove(c)">Delete</button>
       </div>
     </article>
     <p class="muted" *ngIf="!categories.length">No categories yet.</p>

@@ -18,6 +18,7 @@ export class BudgetsComponent implements OnInit {
   budgets: Budget[] = [];
   categories: Category[] = [];
   error = '';
+  saving = false;
   editingId: number | null = null;
 
   readonly now = new Date();
@@ -37,7 +38,10 @@ export class BudgetsComponent implements OnInit {
   reload(): void {
     const { year, month } = this.form.getRawValue();
     this.api.getBudgets(year, month).subscribe({
-      next: (budgets) => (this.budgets = budgets),
+      next: (budgets) => {
+        this.budgets = budgets;
+        this.error = '';
+      },
       error: () => (this.error = 'Failed to load budgets')
     });
   }
@@ -60,13 +64,19 @@ export class BudgetsComponent implements OnInit {
         ? this.api.createBudget(body)
         : this.api.updateBudget(this.editingId, body);
 
+    this.saving = true;
     req$.subscribe({
       next: () => {
+        this.saving = false;
+        this.error = '';
         this.editingId = null;
         this.form.patchValue({ amount: 100, categoryId: '' });
         this.reload();
       },
-      error: (err) => (this.error = err?.error?.message ?? 'Save failed')
+      error: (err) => {
+        this.saving = false;
+        this.error = err?.error?.message ?? 'Save failed';
+      }
     });
   }
 
@@ -80,9 +90,15 @@ export class BudgetsComponent implements OnInit {
     });
   }
 
-  remove(id: number): void {
-    this.api.deleteBudget(id).subscribe({
-      next: () => this.reload(),
+  remove(budget: Budget): void {
+    if (!confirm(`Delete the ${budget.categoryName} budget?`)) {
+      return;
+    }
+    this.api.deleteBudget(budget.id).subscribe({
+      next: () => {
+        this.error = '';
+        this.reload();
+      },
       error: (err) => (this.error = err?.error?.message ?? 'Delete failed')
     });
   }

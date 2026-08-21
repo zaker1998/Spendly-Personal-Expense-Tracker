@@ -20,9 +20,13 @@ export class LoginComponent {
   loading = false;
 
   form = this.fb.nonNullable.group({
-    email: ['demo@spendly.app', [Validators.required, Validators.email]],
-    password: ['Demo123!', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]]
   });
+
+  fillDemo(): void {
+    this.form.setValue({ email: 'demo@spendly.app', password: 'Demo123!' });
+  }
 
   submit(): void {
     if (this.form.invalid) {
