@@ -14,7 +14,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +42,29 @@ public class BudgetService {
 
     @Transactional(readOnly = true)
     public List<BudgetResponse> list(Long userId, int year, int month) {
-        return budgetRepository.findByUserIdAndYearAndMonthOrderByIdAsc(userId, year, month).stream()
-                .map(b -> toResponse(userId, b))
+        List<Budget> budgets = budgetRepository.findByUserIdAndYearAndMonthOrderByIdAsc(userId, year, month);
+        if (budgets.isEmpty()) {
+            return List.of();
+        }
+
+        YearMonth ym = YearMonth.of(year, month);
+        LocalDate from = ym.atDay(1);
+        LocalDate to = ym.atEndOfMonth();
+
+        // One grouped query for the whole list instead of a totals query per budget.
+        Map<Long, BigDecimal> spentByCategory = new HashMap<>();
+        BigDecimal overallSpent = BigDecimal.ZERO;
+        for (Object[] row : expenseRepository.sumByCategoryForMonth(userId, from, to)) {
+            BigDecimal sum = (BigDecimal) row[2];
+            spentByCategory.put((Long) row[0], sum);
+            overallSpent = overallSpent.add(sum);
+        }
+
+        final BigDecimal totalSpent = overallSpent;
+        return budgets.stream()
+                .map(b -> toResponse(b, b.getCategory() == null
+                        ? totalSpent
+                        : spentByCategory.getOrDefault(b.getCategory().getId(), BigDecimal.ZERO)))
                 .toList();
     }
 
@@ -100,20 +123,15 @@ public class BudgetService {
         LocalDate from = ym.atDay(1);
         LocalDate to = ym.atEndOfMonth();
 
-        BigDecimal spent;
-        String categoryName;
-        Long categoryId = null;
-        if (budget.getCategory() != null) {
-            categoryId = budget.getCategory().getId();
-            categoryName = budget.getCategory().getName();
-            spent = expenseRepository.totalForCategoryMonth(userId, categoryId, from, to);
-        } else {
-            categoryName = "Overall";
-            spent = expenseRepository.totalForMonth(userId, from, to);
-        }
-        if (spent == null) {
-            spent = BigDecimal.ZERO;
-        }
+        BigDecimal spent = budget.getCategory() != null
+                ? expenseRepository.totalForCategoryMonth(userId, budget.getCategory().getId(), from, to)
+                : expenseRepository.totalForMonth(userId, from, to);
+        return toResponse(budget, spent == null ? BigDecimal.ZERO : spent);
+    }
+
+    private BudgetResponse toResponse(Budget budget, BigDecimal spent) {
+        Long categoryId = budget.getCategory() != null ? budget.getCategory().getId() : null;
+        String categoryName = budget.getCategory() != null ? budget.getCategory().getName() : "Overall";
 
         BigDecimal limit = budget.getAmount();
         BigDecimal remaining = limit.subtract(spent);

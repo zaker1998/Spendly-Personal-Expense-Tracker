@@ -69,6 +69,11 @@ public class CategoryService {
         if (categoryRepository.countExpensesByCategoryId(categoryId) > 0) {
             throw new BadRequestException("Cannot delete category that has expenses");
         }
+        // The FK is ON DELETE CASCADE, so without this check the user's budgets
+        // for this category would silently disappear.
+        if (categoryRepository.countBudgetsByCategoryId(categoryId) > 0) {
+            throw new BadRequestException("Cannot delete category that has budgets");
+        }
         categoryRepository.delete(category);
     }
 

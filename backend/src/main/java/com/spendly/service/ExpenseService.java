@@ -54,7 +54,7 @@ public class ExpenseService {
         boolean hasMin = minAmount != null;
         boolean hasMax = maxAmount != null;
         boolean hasSearch = search != null && !search.isBlank();
-        String searchPattern = hasSearch ? "%" + search.trim().toLowerCase() + "%" : "%";
+        String searchPattern = hasSearch ? "%" + escapeLike(search.trim().toLowerCase()) + "%" : "%";
         return expenseRepository.findFiltered(
                         userId,
                         hasCategory,
@@ -141,6 +141,14 @@ public class ExpenseService {
                         e.getCreatedAt()
                 ))
                 .toList();
+    }
+
+    /** Escapes LIKE wildcards so searching for "100%" doesn't match everything. */
+    private static String escapeLike(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     private void applyRequest(Expense expense, ExpenseRequest request) {

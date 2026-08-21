@@ -13,6 +13,7 @@ import com.spendly.security.JwtService;
 import com.spendly.security.UserPrincipal;
 import java.util.List;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -74,7 +75,7 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.email().trim().toLowerCase(), request.password())
         );
         User user = userRepository.findByEmailIgnoreCase(request.email().trim())
-                .orElseThrow();
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
         UserPrincipal principal = new UserPrincipal(user);
         String token = jwtService.generateToken(principal);
         return AuthResponse.of(token, user.getId(), user.getEmail(), user.getRole());

@@ -6,6 +6,8 @@ import com.spendly.security.SecurityUtils;
 import com.spendly.service.BudgetService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -19,10 +21,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping("/api/budgets")
 @Tag(name = "Budgets")
+@Validated
 public class BudgetController {
 
     private final BudgetService budgetService;
@@ -33,8 +37,8 @@ public class BudgetController {
 
     @GetMapping
     public List<BudgetResponse> list(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month
+            @RequestParam(required = false) @Min(2000) @Max(2100) Integer year,
+            @RequestParam(required = false) @Min(1) @Max(12) Integer month
     ) {
         LocalDate today = LocalDate.now();
         int y = year != null ? year : today.getYear();

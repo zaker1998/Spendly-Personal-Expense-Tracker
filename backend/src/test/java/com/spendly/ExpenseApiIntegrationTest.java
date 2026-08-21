@@ -105,4 +105,79 @@ class ExpenseApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAmount").value(19.99));
     }
+
+    @Test
+    void invalidMonthReturns400InsteadOf500() throws Exception {
+        String email = "itest-badmonth-" + System.currentTimeMillis() + "@spendly.app";
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String token = objectMapper.readTree(registerResult.getResponse().getContentAsString())
+                .get("accessToken").asText();
+
+        mockMvc.perform(get("/api/summary/monthly")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "13"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.month").isNotEmpty());
+
+        mockMvc.perform(get("/api/summary/monthly")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "not-a-number"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unauthenticatedRequestReturns401Json() throws Exception {
+        mockMvc.perform(get("/api/expenses"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required"));
+    }
+
+    @Test
+    void otherUsersExpenseIsNotAccessible() throws Exception {
+        long now = System.currentTimeMillis();
+        String tokenA = registerAndGetToken("itest-owner-" + now + "@spendly.app");
+        String tokenB = registerAndGetToken("itest-intruder-" + now + "@spendly.app");
+
+        MvcResult categoriesResult = mockMvc.perform(get("/api/categories")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andReturn();
+        long categoryId = objectMapper.readTree(categoriesResult.getResponse().getContentAsString())
+                .get(0).get("id").asLong();
+
+        MvcResult createResult = mockMvc.perform(post("/api/expenses")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"categoryId": %d, "amount": 42.00, "spentOn": "2026-07-01", "description": "Private"}
+                                """.formatted(categoryId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long expenseId = objectMapper.readTree(createResult.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        mockMvc.perform(get("/api/expenses/" + expenseId)
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+    }
+
+    private String registerAndGetToken(String email) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"Secret123!"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("accessToken").asText();
+    }
 }
