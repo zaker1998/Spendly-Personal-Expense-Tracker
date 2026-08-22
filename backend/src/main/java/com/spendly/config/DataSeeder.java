@@ -1,5 +1,6 @@
 package com.spendly.config;
 
+import com.spendly.domain.AppCurrency;
 import com.spendly.domain.Budget;
 import com.spendly.domain.Category;
 import com.spendly.domain.Expense;
@@ -15,11 +16,20 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/**
+ * Seeds the two demo accounts the README documents.
+ *
+ * Off unless {@code spendly.seed-demo-data} is set: the public Render demo turns
+ * it on deliberately so anyone can log in without registering, but a real
+ * deployment must never create a known-password admin by default.
+ */
 @Configuration
+@ConditionalOnProperty(name = "spendly.seed-demo-data", havingValue = "true")
 public class DataSeeder {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
@@ -84,7 +94,7 @@ public class DataSeeder {
         e.setUser(user);
         e.setCategory(category);
         e.setAmount(new BigDecimal(amount));
-        e.setCurrency("EUR");
+        e.setCurrency(AppCurrency.CODE);
         e.setSpentOn(spentOn);
         e.setDescription(description);
         return e;

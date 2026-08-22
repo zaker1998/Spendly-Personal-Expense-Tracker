@@ -35,7 +35,7 @@ public class Expense {
     private BigDecimal amount;
 
     @Column(nullable = false, length = 3)
-    private String currency = "EUR";
+    private String currency = AppCurrency.CODE;
 
     @Column(name = "spent_on", nullable = false)
     private LocalDate spentOn;
@@ -57,7 +57,7 @@ public class Expense {
         }
         updatedAt = now;
         if (currency == null) {
-            currency = "EUR";
+            currency = AppCurrency.CODE;
         }
     }
 

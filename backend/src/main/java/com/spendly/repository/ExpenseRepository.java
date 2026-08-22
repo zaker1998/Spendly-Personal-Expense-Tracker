@@ -55,15 +55,15 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             WHERE (:hasCategory = false OR e.category.id = :categoryId)
               AND (:hasFrom = false OR e.spentOn >= :fromDate)
               AND (:hasTo = false OR e.spentOn <= :toDate)
-            ORDER BY e.spentOn DESC
             """)
-    List<Expense> findAllForAdmin(
+    Page<Expense> findAllForAdmin(
             @Param("hasCategory") boolean hasCategory,
             @Param("categoryId") Long categoryId,
             @Param("hasFrom") boolean hasFrom,
             @Param("fromDate") LocalDate fromDate,
             @Param("hasTo") boolean hasTo,
-            @Param("toDate") LocalDate toDate
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable
     );
 
     @Query("""

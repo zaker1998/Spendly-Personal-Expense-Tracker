@@ -7,43 +7,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
-class ExpenseApiIntegrationTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("spendly")
-            .withUsername("spendly")
-            .withPassword("spendly");
-
-    @DynamicPropertySource
-    static void datasourceProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class ExpenseApiIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void registerLoginCreateExpenseAndSummarize() throws Exception {
@@ -78,7 +46,6 @@ class ExpenseApiIntegrationTest {
                                 {
                                   "categoryId": %d,
                                   "amount": 19.99,
-                                  "currency": "EUR",
                                   "spentOn": "2026-07-15",
                                   "description": "Test lunch"
                                 }
@@ -169,15 +136,67 @@ class ExpenseApiIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    private String registerAndGetToken(String email) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/auth/register")
+    /**
+     * The monthly summary is cached, and the eviction now runs after the write
+     * commits rather than during it. A read straight after a write must still
+     * see the new expense.
+     */
+    @Test
+    void summaryReflectsAnExpenseCreatedAfterItWasCached() throws Exception {
+        String token = registerAndGetToken("itest-cache-" + System.currentTimeMillis() + "@spendly.app");
+        long categoryId = firstCategoryId(token);
+
+        mockMvc.perform(get("/api/summary/monthly")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAmount").value(0));
+
+        createExpense(token, categoryId, "25.00", "2026-03-04");
+
+        mockMvc.perform(get("/api/summary/monthly")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAmount").value(25.00));
+    }
+
+    /**
+     * Currency is server-controlled now; a client-supplied code must not end up
+     * on the row, because every aggregate assumes a single currency.
+     */
+    @Test
+    void currencyFromTheClientIsIgnored() throws Exception {
+        String token = registerAndGetToken("itest-currency-" + System.currentTimeMillis() + "@spendly.app");
+        long categoryId = firstCategoryId(token);
+
+        mockMvc.perform(post("/api/expenses")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"email":"%s","password":"Secret123!"}
-                                """.formatted(email)))
+                                {"categoryId": %d, "amount": 10.00, "currency": "USD", "spentOn": "2026-04-02"}
+                                """.formatted(categoryId)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.currency").value("EUR"));
+    }
+
+    private long firstCategoryId(String token) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/categories")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("accessToken").asText();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get(0).get("id").asLong();
+    }
+
+    private void createExpense(String token, long categoryId, String amount, String spentOn) throws Exception {
+        mockMvc.perform(post("/api/expenses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"categoryId": %d, "amount": %s, "spentOn": "%s"}
+                                """.formatted(categoryId, amount, spentOn)))
+                .andExpect(status().isCreated());
     }
 }

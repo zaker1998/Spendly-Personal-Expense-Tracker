@@ -21,11 +21,18 @@ jobs:
 
       - name: Run tests
         working-directory: backend
-        run: mvn -B test
+        run: ./mvnw -B test
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco
+          path: backend/target/site/jacoco
 
       - name: Package
         working-directory: backend
-        run: mvn -B -DskipTests package
+        run: ./mvnw -B -DskipTests package
 
       - name: Build Docker image
         working-directory: backend
@@ -47,6 +54,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm run test:ci
 
       - name: Build
         working-directory: frontend

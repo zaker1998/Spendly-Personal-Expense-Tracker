@@ -37,6 +37,11 @@ spendly:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:10}
     ai-per-minute: ${RATE_LIMIT_AI_PER_MINUTE:30}
+    # Only enable where a proxy we control rewrites X-Forwarded-For, otherwise
+    # the header is client-supplied and the limit is trivially bypassed.
+    behind-proxy: ${RATE_LIMIT_BEHIND_PROXY:false}
+  # Creates the demo/admin accounts from the README. Public demo only.
+  seed-demo-data: ${SEED_DEMO_DATA:false}
 
 springdoc:
   api-docs:
@@ -48,7 +53,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: spendly
 
 logging:
   level:

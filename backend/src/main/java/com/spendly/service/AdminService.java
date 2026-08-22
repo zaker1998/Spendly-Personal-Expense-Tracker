@@ -2,7 +2,8 @@ package com.spendly.service;
 
 import com.spendly.dto.UserDtos.UserResponse;
 import com.spendly.repository.UserRepository;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +17,8 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserResponse> listUsers() {
-        return userRepository.findAll().stream()
-                .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt()))
-                .toList();
+    public Page<UserResponse> listUsers(Pageable pageable) {
+        return userRepository.findAll(pageable)
+                .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt()));
     }
 }

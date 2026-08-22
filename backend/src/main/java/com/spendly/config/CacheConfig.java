@@ -28,6 +28,8 @@ public class CacheConfig {
         manager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(10_000)
                 .expireAfterWrite(Duration.ofMinutes(10))
+                // recordStats() is what lets Boot publish cache hit/miss/eviction
+                // counters to /actuator/prometheus; without it the meters read zero.
                 .recordStats());
         return manager;
     }

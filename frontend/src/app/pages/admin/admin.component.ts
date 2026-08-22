@@ -2,7 +2,7 @@ import { CurrencyPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
-import { AdminExpense, AppUser } from '../../core/models';
+import { AdminExpense, AppUser, PageResponse } from '../../core/models';
 
 @Component({
   selector: 'app-admin',
@@ -15,9 +15,14 @@ export class AdminComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
 
+  private static readonly PAGE_SIZE = 20;
+
   tab: 'users' | 'expenses' = 'users';
   users: AppUser[] = [];
   expenses: AdminExpense[] = [];
+  page = 0;
+  totalPages = 0;
+  totalElements = 0;
   loading = true;
   error = '';
 
@@ -40,34 +45,58 @@ export class AdminComponent implements OnInit {
     this.loadExpenses();
   }
 
-  loadUsers(): void {
+  loadUsers(page = 0): void {
     this.loading = true;
     this.error = '';
-    this.api.getAdminUsers().subscribe({
-      next: (users) => {
-        this.users = users;
-        this.loading = false;
+    this.api.getAdminUsers(page, AdminComponent.PAGE_SIZE).subscribe({
+      next: (res) => {
+        this.users = res.content;
+        this.applyPageMeta(res);
       },
-      error: (err) => {
-        this.loading = false;
-        this.error = err?.error?.message ?? 'Failed to load users';
-      }
+      error: (err) => this.fail(err, 'Failed to load users')
     });
   }
 
-  loadExpenses(): void {
+  loadExpenses(page = 0): void {
     this.loading = true;
     this.error = '';
     const f = this.filters.getRawValue();
-    this.api.getAdminExpenses({ from: f.from || null, to: f.to || null }).subscribe({
-      next: (expenses) => {
-        this.expenses = expenses;
-        this.loading = false;
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err?.error?.message ?? 'Failed to load expenses';
-      }
-    });
+    this.api
+      .getAdminExpenses({
+        from: f.from || null,
+        to: f.to || null,
+        page,
+        size: AdminComponent.PAGE_SIZE
+      })
+      .subscribe({
+        next: (res) => {
+          this.expenses = res.content;
+          this.applyPageMeta(res);
+        },
+        error: (err) => this.fail(err, 'Failed to load expenses')
+      });
+  }
+
+  goToPage(page: number): void {
+    if (page < 0 || page >= this.totalPages) {
+      return;
+    }
+    if (this.tab === 'users') {
+      this.loadUsers(page);
+    } else {
+      this.loadExpenses(page);
+    }
+  }
+
+  private applyPageMeta(res: PageResponse<unknown>): void {
+    this.page = res.number;
+    this.totalPages = res.totalPages;
+    this.totalElements = res.totalElements;
+    this.loading = false;
+  }
+
+  private fail(err: unknown, fallback: string): void {
+    this.loading = false;
+    this.error = (err as { error?: { message?: string } })?.error?.message ?? fallback;
   }
 }

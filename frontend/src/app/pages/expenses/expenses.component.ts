@@ -40,8 +40,7 @@ export class ExpensesComponent implements OnInit {
     categoryId: ['', Validators.required],
     amount: [0, [Validators.required, Validators.min(0.01)]],
     spentOn: [localToday(), Validators.required],
-    description: [''],
-    currency: ['EUR']
+    description: ['']
   });
 
   ngOnInit(): void {
@@ -100,7 +99,6 @@ export class ExpensesComponent implements OnInit {
     const body = {
       categoryId: Number(value.categoryId),
       amount: Number(value.amount),
-      currency: value.currency || 'EUR',
       spentOn: value.spentOn,
       description: value.description || undefined
     };
@@ -158,8 +156,7 @@ export class ExpensesComponent implements OnInit {
       categoryId: String(expense.categoryId),
       amount: expense.amount,
       spentOn: expense.spentOn,
-      description: expense.description ?? '',
-      currency: expense.currency
+      description: expense.description ?? ''
     });
   }
 
@@ -211,7 +208,6 @@ export class ExpensesComponent implements OnInit {
       amount: 0,
       description: '',
       spentOn: localToday(),
-      currency: 'EUR',
       categoryId: this.categories.length ? String(this.categories[0].id) : ''
     });
   }

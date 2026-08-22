@@ -6,7 +6,10 @@ import com.spendly.service.AdminService;
 import com.spendly.service.ExpenseService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,16 +30,19 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public List<UserResponse> users() {
-        return adminService.listUsers();
+    public Page<UserResponse> users(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return adminService.listUsers(pageable);
     }
 
     @GetMapping("/expenses")
-    public List<AdminExpenseResponse> expenses(
+    public Page<AdminExpenseResponse> expenses(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @PageableDefault(size = 20, sort = "spentOn", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return expenseService.listAllForAdmin(categoryId, from, to);
+        return expenseService.listAllForAdmin(categoryId, from, to, pageable);
     }
 }

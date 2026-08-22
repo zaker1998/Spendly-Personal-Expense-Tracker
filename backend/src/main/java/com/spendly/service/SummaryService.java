@@ -1,6 +1,7 @@
 package com.spendly.service;
 
 import com.spendly.config.CacheConfig;
+import com.spendly.domain.AppCurrency;
 import com.spendly.dto.SummaryDtos.CategoryTotal;
 import com.spendly.dto.SummaryDtos.MonthlySummaryResponse;
 import com.spendly.repository.ExpenseRepository;
@@ -37,6 +38,6 @@ public class SummaryService {
                 ))
                 .toList();
 
-        return new MonthlySummaryResponse(year, month, total, "EUR", byCategory);
+        return new MonthlySummaryResponse(year, month, total, AppCurrency.CODE, byCategory);
     }
 }

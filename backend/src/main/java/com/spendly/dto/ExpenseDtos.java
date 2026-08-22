@@ -13,10 +13,10 @@ public final class ExpenseDtos {
     private ExpenseDtos() {
     }
 
+    /** No currency field: see {@link com.spendly.domain.AppCurrency}. */
     public record ExpenseRequest(
             @NotNull Long categoryId,
             @NotNull @DecimalMin(value = "0.01") BigDecimal amount,
-            @Size(min = 3, max = 3) String currency,
             @NotNull LocalDate spentOn,
             @Size(max = 500) String description
     ) {

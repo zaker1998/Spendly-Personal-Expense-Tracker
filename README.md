@@ -21,8 +21,9 @@ Personal expense tracker with Spring Boot + Angular.
 - CSV export
 - **Rate limiting** on auth + AI endpoints (per-IP fixed window, HTTP 429 + `Retry-After`)
 - Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s
-- Admin UI (users + all expenses)
+- Admin UI (users + all expenses), paged
 - Swagger UI
+- Prometheus metrics at `/actuator/prometheus`, including cache hit/miss counters
 - Unit tests + integration tests against real PostgreSQL via Testcontainers
 - `docker compose` for local run
 
@@ -54,12 +55,18 @@ flowchart LR
 
 ### Design decisions
 
+Longer write-ups of the trickier calls — including four bugs I found and fixed
+in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md).
+
 - **JWT (stateless) over sessions** — the API stays horizontally scalable and the SPA keeps a single token; short expiry + HTTPS mitigate token theft.
 - **Flyway with `ddl-auto: validate`** — the schema is owned by versioned SQL migrations, never by Hibernate auto-DDL; production and tests run identical schemas.
 - **AI suggestions are validated server-side** — the LLM is asked to pick from the user's own category names, and its answer is checked against the database before being returned. A hallucinated category can never reach the client. On any provider failure (timeout, rate limit, missing key) the endpoint degrades to a keyword heuristic instead of erroring.
 - **Caffeine instead of Redis for caching** — the app runs as a single instance, so an in-process cache gives the same latency win without extra infrastructure. Writes evict exactly the affected user+month entry, not the whole cache; a 10-minute TTL bounds staleness.
+- **Cache eviction happens after commit** — the evict is raised as a domain event and consumed with `@TransactionalEventListener(AFTER_COMMIT)`. Evicting inline during the write left a window where a concurrent read could repopulate the cache from uncommitted state and then serve stale totals for the rest of the TTL; it also meant a rolled-back write still dropped a valid entry.
+- **Single currency, enforced end to end** — amounts are summed in the monthly summary and in budget progress, so mixed currencies would produce a total that looks right and isn't. Rather than half-build multi-currency, the API rejects the concept: the server sets the code, a CHECK constraint backs it, and one constant (`AppCurrency`) is the only place to change when FX rates are actually modelled.
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
-- **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis.
+- **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis. `X-Forwarded-For` is only trusted when the deployment declares a proxy in front (`RATE_LIMIT_BEHIND_PROXY`), because otherwise the header is client-supplied and rotating it would hand out an unlimited number of login attempts.
+- **Every list endpoint is paged** — including the admin views. An admin screen that returns every expense in the system is the one query whose cost grows without bound.
 
 ## Run locally
 
@@ -76,6 +83,10 @@ docker compose up --build
 Postgres is on host port **5433**, API on **8081** (so they don't clash with other local containers).
 
 ### Demo users
+
+Seeded only when `SEED_DEMO_DATA=true`, which `docker compose` and the public
+Render demo both set on purpose. It is **off by default** so no real deployment
+ever comes up with a known admin password.
 
 | Email | Password | Role |
 |-------|----------|------|
@@ -107,6 +118,14 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 | `RATE_LIMIT_ENABLED` | `true` | Kill switch |
 | `RATE_LIMIT_AUTH_PER_MINUTE` | `10` | Per IP, `/api/auth/**` |
 | `RATE_LIMIT_AI_PER_MINUTE` | `30` | Per IP, AI suggestions |
+| `RATE_LIMIT_BEHIND_PROXY` | `false` | Read the client IP from `X-Forwarded-For`. Only enable where a proxy you control rewrites it |
+
+### Other environment variables
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `JWT_SECRET` | dev value | Must be ≥ 32 bytes; the app refuses to start otherwise |
+| `SEED_DEMO_DATA` | `false` | Create the demo/admin accounts above |
 
 ## Screenshots
 
@@ -133,13 +152,16 @@ render.yaml  optional Render blueprint
 
 ## Dev without full Compose
 
+Needs JDK 21 and Node 22. Maven comes from the committed wrapper (`./mvnw`), so
+no local Maven install is required.
+
 ```bash
 # DB
 docker compose up postgres -d
 
 # API
 cd backend
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/spendly mvn spring-boot:run
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/spendly SEED_DEMO_DATA=true ./mvnw spring-boot:run
 
 # UI
 cd frontend
@@ -161,17 +183,34 @@ Frontend expects the API at `http://localhost:8080/api` in dev.
 | GET | `/api/expenses/export` | CSV download |
 | GET/POST/PUT/DELETE | `/api/budgets` | monthly limits |
 | GET | `/api/summary/monthly` | cached (Caffeine, 10 min TTL) |
-| GET | `/api/admin/users` | ADMIN |
-| GET | `/api/admin/expenses` | ADMIN |
+| GET | `/api/admin/users` | ADMIN, paged |
+| GET | `/api/admin/expenses` | ADMIN, paged |
+
+Everything returning a collection of unknown size is paged (`page`, `size`, `sort`).
 
 ## Tests
 
 ```bash
-cd backend
-mvn test
+cd backend && ./mvnw test        # 28 tests, JaCoCo report in target/site/jacoco
+cd frontend && npm run test:ci   # 24 tests, headless Chrome + coverage
 ```
 
-Unit tests (Mockito) cover services including the AI suggestion fallback logic and the rate limiter; integration tests (Testcontainers + MockMvc) exercise the full HTTP → database path against real PostgreSQL, including security behaviour: 401 for anonymous requests, 400 (not 500) for invalid query params, and cross-user isolation (user B cannot read user A's expense).
+Both suites run on every push (`.github/workflows/ci.yml`).
+
+**Backend** — unit tests (Mockito) cover the services, the AI suggestion fallback
+logic, the rate limiter and the JWT secret guard. Integration tests
+(Testcontainers + MockMvc) exercise the full HTTP → database path against real
+PostgreSQL: 401 for anonymous requests, 403 when a regular user reaches an admin
+endpoint, 400 (not 500) for invalid query params, cross-user isolation (user B
+cannot read user A's expense), the summary cache returning fresh totals straight
+after a write, and a client-supplied currency being ignored. All classes share
+one container via `AbstractIntegrationTest`.
+
+**Frontend** — the core layer is specced: session persistence and restore,
+the interceptor's token attachment and 401-logout rule (and the login request it
+must *not* log out), the three route guards, and API parameter building.
+
+Line coverage is ~77% on the backend and ~70% on the frontend core.
 
 ## License
 

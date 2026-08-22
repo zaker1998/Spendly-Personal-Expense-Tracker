@@ -13,6 +13,14 @@ import {
   PageResponse
 } from './models';
 
+/** Currency is set by the server, so it is deliberately not part of the payload. */
+export interface ExpensePayload {
+  categoryId: number;
+  amount: number;
+  spentOn: string;
+  description?: string;
+}
+
 export interface ExpenseFilters {
   categoryId?: number | null;
   from?: string | null;
@@ -60,26 +68,11 @@ export class ApiService {
     return this.http.get<PageResponse<Expense>>(`${environment.apiUrl}/expenses`, { params });
   }
 
-  createExpense(body: {
-    categoryId: number;
-    amount: number;
-    currency?: string;
-    spentOn: string;
-    description?: string;
-  }): Observable<Expense> {
+  createExpense(body: ExpensePayload): Observable<Expense> {
     return this.http.post<Expense>(`${environment.apiUrl}/expenses`, body);
   }
 
-  updateExpense(
-    id: number,
-    body: {
-      categoryId: number;
-      amount: number;
-      currency?: string;
-      spentOn: string;
-      description?: string;
-    }
-  ): Observable<Expense> {
+  updateExpense(id: number, body: ExpensePayload): Observable<Expense> {
     return this.http.put<Expense>(`${environment.apiUrl}/expenses/${id}`, body);
   }
 
@@ -141,14 +134,19 @@ export class ApiService {
     });
   }
 
-  getAdminUsers(): Observable<AppUser[]> {
-    return this.http.get<AppUser[]>(`${environment.apiUrl}/admin/users`);
+  getAdminUsers(page = 0, size = 20): Observable<PageResponse<AppUser>> {
+    const params = new HttpParams().set('page', String(page)).set('size', String(size));
+    return this.http.get<PageResponse<AppUser>>(`${environment.apiUrl}/admin/users`, { params });
   }
 
-  getAdminExpenses(filters: { from?: string | null; to?: string | null } = {}): Observable<AdminExpense[]> {
-    let params = new HttpParams();
+  getAdminExpenses(
+    filters: { from?: string | null; to?: string | null; page?: number; size?: number } = {}
+  ): Observable<PageResponse<AdminExpense>> {
+    let params = new HttpParams()
+      .set('page', String(filters.page ?? 0))
+      .set('size', String(filters.size ?? 20));
     if (filters.from) params = params.set('from', filters.from);
     if (filters.to) params = params.set('to', filters.to);
-    return this.http.get<AdminExpense[]>(`${environment.apiUrl}/admin/expenses`, { params });
+    return this.http.get<PageResponse<AdminExpense>>(`${environment.apiUrl}/admin/expenses`, { params });
   }
 }

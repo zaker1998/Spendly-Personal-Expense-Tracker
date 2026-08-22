@@ -1,5 +1,6 @@
 package com.spendly.service;
 
+import com.spendly.domain.AppCurrency;
 import com.spendly.domain.Category;
 import com.spendly.domain.Expense;
 import com.spendly.domain.User;
@@ -11,7 +12,7 @@ import com.spendly.repository.ExpenseRepository;
 import com.spendly.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,18 +24,18 @@ public class ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
     private final CategoryService categoryService;
-    private final SummaryCacheEvictor summaryCacheEvictor;
+    private final ApplicationEventPublisher events;
 
     public ExpenseService(
             ExpenseRepository expenseRepository,
             UserRepository userRepository,
             CategoryService categoryService,
-            SummaryCacheEvictor summaryCacheEvictor
+            ApplicationEventPublisher events
     ) {
         this.expenseRepository = expenseRepository;
         this.userRepository = userRepository;
         this.categoryService = categoryService;
-        this.summaryCacheEvictor = summaryCacheEvictor;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +90,7 @@ public class ExpenseService {
         expense.setUser(user);
         expense.setCategory(category);
         applyRequest(expense, request);
-        summaryCacheEvictor.evictMonth(userId, request.spentOn());
+        events.publishEvent(new SummaryChangedEvent(userId, request.spentOn()));
         return toResponse(expenseRepository.save(expense));
     }
 
@@ -100,8 +101,8 @@ public class ExpenseService {
         Category category = categoryService.getOwnedOrThrow(userId, request.categoryId());
         // The expense may move between months, so both the old and new summary
         // entries must be invalidated.
-        summaryCacheEvictor.evictMonth(userId, expense.getSpentOn());
-        summaryCacheEvictor.evictMonth(userId, request.spentOn());
+        events.publishEvent(new SummaryChangedEvent(userId, expense.getSpentOn()));
+        events.publishEvent(new SummaryChangedEvent(userId, request.spentOn()));
         expense.setCategory(category);
         applyRequest(expense, request);
         return toResponse(expense);
@@ -111,12 +112,17 @@ public class ExpenseService {
     public void delete(Long userId, Long expenseId) {
         Expense expense = expenseRepository.findByIdAndUserIdWithCategory(expenseId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
-        summaryCacheEvictor.evictMonth(userId, expense.getSpentOn());
+        events.publishEvent(new SummaryChangedEvent(userId, expense.getSpentOn()));
         expenseRepository.delete(expense);
     }
 
     @Transactional(readOnly = true)
-    public List<AdminExpenseResponse> listAllForAdmin(Long categoryId, LocalDate fromDate, LocalDate toDate) {
+    public Page<AdminExpenseResponse> listAllForAdmin(
+            Long categoryId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Pageable pageable
+    ) {
         boolean hasCategory = categoryId != null;
         boolean hasFrom = fromDate != null;
         boolean hasTo = toDate != null;
@@ -126,8 +132,8 @@ public class ExpenseService {
                         hasFrom,
                         hasFrom ? fromDate : LocalDate.EPOCH,
                         hasTo,
-                        hasTo ? toDate : LocalDate.EPOCH)
-                .stream()
+                        hasTo ? toDate : LocalDate.EPOCH,
+                        pageable)
                 .map(e -> new AdminExpenseResponse(
                         e.getId(),
                         e.getUser().getId(),
@@ -139,8 +145,7 @@ public class ExpenseService {
                         e.getSpentOn(),
                         e.getDescription(),
                         e.getCreatedAt()
-                ))
-                .toList();
+                ));
     }
 
     /** Escapes LIKE wildcards so searching for "100%" doesn't match everything. */
@@ -153,9 +158,7 @@ public class ExpenseService {
 
     private void applyRequest(Expense expense, ExpenseRequest request) {
         expense.setAmount(request.amount());
-        expense.setCurrency(request.currency() == null || request.currency().isBlank()
-                ? "EUR"
-                : request.currency().toUpperCase());
+        expense.setCurrency(AppCurrency.CODE);
         expense.setSpentOn(request.spentOn());
         expense.setDescription(request.description());
     }

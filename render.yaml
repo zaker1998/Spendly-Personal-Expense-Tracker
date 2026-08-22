@@ -22,3 +22,11 @@ services:
       # Groq key (set in Render dashboard). Without it, suggest uses heuristic.
       - key: AI_API_KEY
         sync: false
+      # Render terminates TLS and rewrites X-Forwarded-For, so the header can be
+      # trusted here. It must stay off anywhere the app is reachable directly.
+      - key: RATE_LIMIT_BEHIND_PROXY
+        value: "true"
+      # This is the public demo: the README publishes these credentials on
+      # purpose so recruiters can log in without registering.
+      - key: SEED_DEMO_DATA
+        value: "true"

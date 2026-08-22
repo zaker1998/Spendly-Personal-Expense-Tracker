@@ -1,5 +1,6 @@
 package com.spendly.service;
 
+import com.spendly.domain.AppCurrency;
 import com.spendly.domain.Budget;
 import com.spendly.domain.Category;
 import com.spendly.domain.User;
@@ -153,7 +154,7 @@ public class BudgetService {
                 over,
                 budget.getYear(),
                 budget.getMonth(),
-                "EUR"
+                AppCurrency.CODE
         );
     }
 }

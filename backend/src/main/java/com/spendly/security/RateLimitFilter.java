@@ -26,16 +26,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final boolean enabled;
     private final int authLimitPerMinute;
     private final int aiLimitPerMinute;
+    private final boolean behindProxy;
     private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
 
     public RateLimitFilter(
             @Value("${spendly.rate-limit.enabled:true}") boolean enabled,
             @Value("${spendly.rate-limit.auth-per-minute:10}") int authLimitPerMinute,
-            @Value("${spendly.rate-limit.ai-per-minute:30}") int aiLimitPerMinute
+            @Value("${spendly.rate-limit.ai-per-minute:30}") int aiLimitPerMinute,
+            @Value("${spendly.rate-limit.behind-proxy:false}") boolean behindProxy
     ) {
         this.enabled = enabled;
         this.authLimitPerMinute = authLimitPerMinute;
         this.aiLimitPerMinute = aiLimitPerMinute;
+        this.behindProxy = behindProxy;
     }
 
     @Override
@@ -78,11 +81,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return 0;
     }
 
+    /**
+     * X-Forwarded-For is set by the client and only becomes trustworthy once a
+     * proxy we control has overwritten it. Honouring it unconditionally let an
+     * attacker send a different value per request and get a fresh bucket every
+     * time, which defeats the point of limiting login attempts. So it is read
+     * only when the deployment says there is a proxy in front (behind-proxy is
+     * true on Render, false locally and in tests).
+     */
     private String clientIp(HttpServletRequest request) {
-        // Render / any reverse proxy puts the real client first in X-Forwarded-For.
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        if (behindProxy) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
         return request.getRemoteAddr();
     }

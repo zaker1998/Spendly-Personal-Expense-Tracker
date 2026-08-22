@@ -13,7 +13,7 @@ class RateLimitFilterTest {
 
     @Test
     void blocksAuthRequestsOverTheLimit() throws ServletException, IOException {
-        RateLimitFilter filter = new RateLimitFilter(true, 3, 30);
+        RateLimitFilter filter = new RateLimitFilter(true, 3, 30, false);
 
         for (int i = 0; i < 3; i++) {
             assertThat(perform(filter, "/api/auth/login", "1.2.3.4").getStatus()).isEqualTo(200);
@@ -27,7 +27,7 @@ class RateLimitFilterTest {
 
     @Test
     void limitsAreTrackedPerIp() throws ServletException, IOException {
-        RateLimitFilter filter = new RateLimitFilter(true, 1, 30);
+        RateLimitFilter filter = new RateLimitFilter(true, 1, 30, false);
 
         assertThat(perform(filter, "/api/auth/login", "1.1.1.1").getStatus()).isEqualTo(200);
         assertThat(perform(filter, "/api/auth/login", "1.1.1.1").getStatus()).isEqualTo(429);
@@ -36,7 +36,7 @@ class RateLimitFilterTest {
 
     @Test
     void ignoresUnrelatedEndpoints() throws ServletException, IOException {
-        RateLimitFilter filter = new RateLimitFilter(true, 1, 1);
+        RateLimitFilter filter = new RateLimitFilter(true, 1, 1, false);
 
         for (int i = 0; i < 5; i++) {
             assertThat(perform(filter, "/api/expenses", "1.2.3.4").getStatus()).isEqualTo(200);
@@ -45,24 +45,28 @@ class RateLimitFilterTest {
 
     @Test
     void usesFirstForwardedAddressBehindProxy() throws ServletException, IOException {
-        RateLimitFilter filter = new RateLimitFilter(true, 1, 30);
+        RateLimitFilter filter = new RateLimitFilter(true, 1, 30, true);
 
-        MockHttpServletRequest first = request("/api/auth/login", "10.0.0.1");
-        first.addHeader("X-Forwarded-For", "203.0.113.7, 10.0.0.1");
-        MockHttpServletResponse firstResponse = new MockHttpServletResponse();
-        filter.doFilter(first, firstResponse, new MockFilterChain());
-        assertThat(firstResponse.getStatus()).isEqualTo(200);
+        assertThat(performForwarded(filter, "10.0.0.1", "203.0.113.7, 10.0.0.1").getStatus()).isEqualTo(200);
+        assertThat(performForwarded(filter, "10.0.0.2", "203.0.113.7, 10.0.0.2").getStatus()).isEqualTo(429);
+    }
 
-        MockHttpServletRequest second = request("/api/auth/login", "10.0.0.2");
-        second.addHeader("X-Forwarded-For", "203.0.113.7, 10.0.0.2");
-        MockHttpServletResponse secondResponse = new MockHttpServletResponse();
-        filter.doFilter(second, secondResponse, new MockFilterChain());
-        assertThat(secondResponse.getStatus()).isEqualTo(429);
+    /**
+     * Without a trusted proxy in front, X-Forwarded-For is just something the
+     * caller typed. Honouring it would let one client rotate the header and get
+     * an unlimited number of login attempts.
+     */
+    @Test
+    void ignoresForwardedHeaderWhenNotBehindProxy() throws ServletException, IOException {
+        RateLimitFilter filter = new RateLimitFilter(true, 1, 30, false);
+
+        assertThat(performForwarded(filter, "1.2.3.4", "203.0.113.1").getStatus()).isEqualTo(200);
+        assertThat(performForwarded(filter, "1.2.3.4", "203.0.113.2").getStatus()).isEqualTo(429);
     }
 
     @Test
     void disabledFilterSkipsEverything() throws ServletException, IOException {
-        RateLimitFilter filter = new RateLimitFilter(false, 1, 1);
+        RateLimitFilter filter = new RateLimitFilter(false, 1, 1, false);
 
         for (int i = 0; i < 5; i++) {
             assertThat(perform(filter, "/api/auth/login", "1.2.3.4").getStatus()).isEqualTo(200);
@@ -73,6 +77,15 @@ class RateLimitFilterTest {
             throws ServletException, IOException {
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilter(request(uri, ip), response, new MockFilterChain());
+        return response;
+    }
+
+    private MockHttpServletResponse performForwarded(RateLimitFilter filter, String ip, String forwardedFor)
+            throws ServletException, IOException {
+        MockHttpServletRequest request = request("/api/auth/login", ip);
+        request.addHeader("X-Forwarded-For", forwardedFor);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
         return response;
     }
 

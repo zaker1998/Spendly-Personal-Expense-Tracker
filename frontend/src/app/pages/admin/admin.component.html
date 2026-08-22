@@ -34,6 +34,19 @@
       </tbody>
     </table>
     <ng-template #noUsers><p class="muted">No users found.</p></ng-template>
+
+    <div class="pager" *ngIf="totalPages > 1">
+      <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
+      <span>Page {{ page + 1 }} of {{ totalPages }}</span>
+      <button
+        type="button"
+        class="ghost"
+        [disabled]="page + 1 >= totalPages"
+        (click)="goToPage(page + 1)"
+      >
+        Next
+      </button>
+    </div>
   </div>
 
   <div class="panel" *ngIf="!loading && tab === 'expenses'">
@@ -64,5 +77,18 @@
       </tbody>
     </table>
     <ng-template #noExpenses><p class="muted">No expenses match these filters.</p></ng-template>
+
+    <div class="pager" *ngIf="totalPages > 1">
+      <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
+      <span>Page {{ page + 1 }} of {{ totalPages }} · {{ totalElements }} total</span>
+      <button
+        type="button"
+        class="ghost"
+        [disabled]="page + 1 >= totalPages"
+        (click)="goToPage(page + 1)"
+      >
+        Next
+      </button>
+    </div>
   </div>
 </section>
