@@ -126,6 +126,38 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 |---------|---------|---------|
 | `JWT_SECRET` | dev value | Must be ≥ 32 bytes; the app refuses to start otherwise |
 | `SEED_DEMO_DATA` | `false` | Create the demo/admin accounts above |
+| `DATABASE_URL` | — | `postgres://user:pass@host/db` style URL. Split into the `SPRING_DATASOURCE_*` vars by `docker/entrypoint.sh`; set them directly instead if you prefer |
+| `SPRING_DATASOURCE_URL` | local Postgres | JDBC URL. Takes precedence over `DATABASE_URL` |
+| `PORT` | — | Mapped to `SERVER_PORT`; set automatically by most PaaS hosts |
+
+## Deployment
+
+The demo runs as a single container (SPA + API, see the root `Dockerfile`) on
+Render's free tier, against a **Neon** Postgres instance.
+
+Splitting the database off the host is deliberate. Render's free Postgres
+expires after a fixed window and is then deleted — acceptable for a scratch
+project, not for a link on a CV. Neon's free tier does not expire, so the
+database outlives the hosting choice and moving the app elsewhere is a change of
+one environment variable.
+
+`render.yaml` is a blueprint for the whole service. `DATABASE_URL` and
+`AI_API_KEY` are marked `sync: false`, so they are set in the dashboard and
+never committed.
+
+```bash
+# Neon connection strings are already in the shape entrypoint.sh expects,
+# including the required ?sslmode=require.
+DATABASE_URL=postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
+```
+
+Flyway builds the schema on first boot, so a fresh, empty database needs no
+setup step. With `SEED_DEMO_DATA=true` the demo accounts are created on the same
+startup.
+
+> Cold start: on the free tier the instance sleeps after ~15 minutes idle and
+> takes up to a minute to wake. `/actuator/health` includes a database check, so
+> a scheduled ping against it keeps both the instance and the Neon compute warm.
 
 ## Screenshots
 
