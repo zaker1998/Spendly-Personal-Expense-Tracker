@@ -30,7 +30,7 @@ services:
       # Optional Groq key; falls back to heuristic if unset
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.groq.com/openai/v1}
-      AI_MODEL: ${AI_MODEL:-llama-3.1-8b-instant}
+      AI_MODEL: ${AI_MODEL:-openai/gpt-oss-20b}
       # Local run: seed the demo accounts documented in the README.
       SEED_DEMO_DATA: "true"
     ports:

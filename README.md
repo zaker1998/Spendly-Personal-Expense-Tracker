@@ -120,7 +120,8 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `AI_API_KEY` | *(empty — heuristic only)* | Groq API key |
-| `AI_MODEL` | `llama-3.1-8b-instant` | Optional override |
+| `AI_MODEL` | `openai/gpt-oss-20b` | Optional override |
+| `AI_REASONING_EFFORT` | `low` | Sent only when non-blank; reasoning models bill thinking tokens as output |
 | `AI_SUGGESTIONS_ENABLED` | `true` | Kill switch |
 
 ### Rate limiting
