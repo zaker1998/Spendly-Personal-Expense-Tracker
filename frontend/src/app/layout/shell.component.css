@@ -24,6 +24,10 @@
 
 nav {
   display: grid;
+  /* flex:1 makes nav absorb the leftover height so .user sits at the bottom.
+     Without this the implicit grid rows stretch to fill it and every link
+     becomes a tall block. */
+  align-content: start;
   gap: 0.35rem;
   flex: 1;
 }

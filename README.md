@@ -2,6 +2,8 @@
 
 Personal expense tracker with Spring Boot + Angular.
 
+![Spendly dashboard](docs/screenshots/dashboard.png)
+
 **Live:** https://spendly-33ek.onrender.com
 
 **Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI
@@ -161,17 +163,27 @@ startup.
 
 ## Screenshots
 
-![Login](docs/screenshots/login.png)
-
-![Dashboard](docs/screenshots/dashboard.png)
+**Expenses** — filtering, pagination, CSV export, and the category suggestion that
+asks an LLM to choose from your own categories.
 
 ![Expenses](docs/screenshots/expenses.png)
 
-![Budgets](docs/screenshots/budgets.png)
+**Admin** — role-gated view of every user and expense in the system, paged.
 
 ![Admin](docs/screenshots/admin.png)
 
+<details>
+<summary>More screenshots</summary>
+
+**Budgets** — monthly limits with progress and over-budget state.
+
+![Budgets](docs/screenshots/budgets.png)
+
+**Swagger UI** — the full API surface.
+
 ![Swagger](docs/screenshots/swagger.png)
+
+</details>
 
 ## Project layout
 

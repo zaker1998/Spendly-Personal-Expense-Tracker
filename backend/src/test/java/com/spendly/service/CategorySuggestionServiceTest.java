@@ -78,6 +78,26 @@ class CategorySuggestionServiceTest {
         assertThat(service.suggest(1L, "Billa groceries").categoryName()).isEqualTo("Food");
     }
 
+    @Test
+    void heuristicCoversEverydayViennaSpending() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(false);
+
+        assertThat(service.suggest(1L, "pasta").categoryName()).isEqualTo("Food");
+        assertThat(service.suggest(1L, "plane ticket to Berlin").categoryName()).isEqualTo("Transport");
+        assertThat(service.suggest(1L, "doner for lunch").categoryName()).isEqualTo("Food");
+        assertThat(service.suggest(1L, "museum entry").categoryName()).isEqualTo("Leisure");
+        assertThat(service.suggest(1L, "monthly Miete").categoryName()).isEqualTo("Rent");
+    }
+
+    @Test
+    void unknownDescriptionFallsBackToOther() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(false);
+
+        assertThat(service.suggest(1L, "zzzz unclassifiable").categoryName()).isEqualTo("Other");
+    }
+
     private List<Category> defaultCategories() {
         return List.of(
                 category(1L, "Food"),

@@ -36,16 +36,20 @@ public class CategorySuggestionService {
      */
     private static final Map<String, List<String>> KEYWORD_GROUPS = orderedGroups(
             "food", List.of("grocery", "groceries", "restaurant", "lunch", "dinner", "breakfast", "coffee",
-                    "pizza", "supermarket", "billa", "spar", "hofer", "lidl", "penny", "bakery", "snack"),
+                    "pizza", "pasta", "sushi", "burger", "kebab", "doner", "döner", "schnitzel", "brunch",
+                    "supermarket", "billa", "spar", "hofer", "lidl", "penny", "bakery", "snack", "cafe",
+                    "café", "takeaway", "lieferando", "food"),
             // "ticket" deliberately omitted: cinema, concert and event tickets are
             // leisure far more often than transport. The specific operators below
             // carry the transport signal instead.
             "transport", List.of("uber", "bolt", "taxi", "train", "bus", "metro", "fuel", "gas",
-                    "parking", "flight", "oebb", "öbb", "wiener linien", "scooter", "u-bahn"),
+                    "parking", "flight", "plane", "airline", "airport", "flixbus", "oebb", "öbb",
+                    "wiener linien", "scooter", "u-bahn", "s-bahn", "tram", "petrol", "railjet"),
             "rent", List.of("rent", "miete", "apartment", "utilities", "electricity", "internet", "wifi",
                     "heating", "insurance"),
             "leisure", List.of("cinema", "movie", "netflix", "spotify", "gym", "concert", "game", "bar",
-                    "club", "party", "book", "hobby", "dance")
+                    "club", "party", "book", "hobby", "dance", "theatre", "theater", "museum", "festival",
+                    "streaming", "sauna", "swimming")
     );
 
     @SafeVarargs
