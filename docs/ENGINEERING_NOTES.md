@@ -260,9 +260,127 @@ built artefact is a guess. This one would have shipped a fully broken page.
 
 ---
 
+## 9. The CSV export contradicted the rule the README brags about
+
+Two problems in one 50-line file.
+
+**It built the whole export in memory.** `toCsv` called `list(..., Pageable.unpaged())`
+and appended every row to a `StringBuilder`, then the controller turned that into
+a `byte[]`. So the peak memory of a request was proportional to the user's entire
+history, twice over — and the README two sections up says *"Every list endpoint is
+paged... An admin screen that returns every expense in the system is the one query
+whose cost grows without bound."* The principle was already written down; the
+export just wasn't held to it. That inconsistency is what made it findable.
+
+It now streams: `StreamingResponseBody`, 500 rows per query, written straight to
+the socket, with a configurable cap as a backstop. Two details that are easy to
+get wrong:
+
+- **No `@Transactional` around the stream.** The write is paced by the client's
+  download speed, and holding a pooled connection for that long is how a handful
+  of slow readers exhaust the pool. Each chunk gets its own short read-only
+  transaction instead. The trade is that a concurrent insert can land in a later
+  chunk; for an export of your own expenses that's fine, and saying which
+  guarantee I gave up is the point.
+- **Chunked reads need a total order.** The filter query has no `ORDER BY` of its
+  own, and `Pageable.unpaged()` never needed one. The moment you read in pages,
+  an unordered query is free to return a different order per `OFFSET`, so rows
+  duplicate across one chunk boundary and vanish at another. Sorting by `id`
+  makes the order total. There's a test asserting the sort is requested, because
+  this is exactly the kind of thing a later refactor drops silently.
+
+**The switch to streaming broke authentication, and the test caught it.**
+`StreamingResponseBody` makes the container dispatch the request a second time
+with `DispatcherType.ASYNC` once the handler returns. Spring Security 6 filters
+every dispatcher type by default, but `OncePerRequestFilter` — which the JWT
+filter extends — deliberately skips async dispatches. So the second pass found no
+authentication, decided the request was anonymous, and tried to write a 401 into a
+response whose headers had already gone out: *"Unable to handle the Spring
+Security Exception because the response is already committed."* The fix is to
+permit `ASYNC` and `ERROR` dispatches explicitly; authorization already ran on the
+`REQUEST` dispatch, which is the only one a client controls.
+
+Worth noting how this was found. The unit tests passed. The Testcontainers run
+inside a Maven container passed too — because Testcontainers couldn't reach the
+Docker daemon and skipped all twelve integration tests while still reporting
+BUILD SUCCESS. Only running the suite properly caught it. A green build that
+skipped the tests that mattered is worse than a red one.
+
+**And the formula injection.** `escape()` handled quotes and commas correctly and
+did nothing about CWE-1236: a description of `=HYPERLINK("http://evil","click")`
+is inert text everywhere in the app and an executable formula the moment the file
+is opened in Excel or Sheets. Any cell starting with `=`, `+`, `-`, `@`, tab or CR
+is now prefixed with an apostrophe, which spreadsheets read as "this is text" and
+strip. Neutralisation happens before quoting — quoting a formula doesn't stop
+Excel evaluating it.
+
+---
+
+## 10. Accessibility: 24 automated violations, then zero
+
+The app had four pages of forms with no `<label>` on anything. `placeholder` was
+doing the work, which is not an accessible name, disappears as soon as you type,
+and was absent entirely from the date inputs — so a screen reader announced
+"edit, blank" and nothing else.
+
+I measured instead of guessing. axe-core against the running app, WCAG 2.1 A and
+AA, six pages plus both admin tabs:
+
+| | before | after |
+|--|--|--|
+| `label` (critical) | 9 | 0 |
+| `select-name` (critical) | 3 | 0 |
+| `color-contrast` (serious) | 12 | 0 |
+| **total** | **24** | **0** |
+
+The contrast failures were a surprise and they were nearly all one rule: white
+text on the `#e76f51` delete button is 3.09:1, against the 4.5:1 that AA wants.
+The primary teal was 3.32:1. Both were darkened within the same hue —
+`#b1543d` (4.99:1) and `#1f7a6e` (5.16:1) — so the palette still reads as the
+same palette.
+
+Labels are `.visually-hidden` where the design is a compact toolbar. That is a
+real label in the accessibility tree, not an `aria-label` bolted on, and it keeps
+the layout untouched.
+
+**Two judgement calls I'd defend.**
+
+- The budget bars and the dashboard chart bars are `aria-hidden`. They render a
+  number that is already written out in text next to them, so a `progressbar`
+  role would make a screen reader announce the same figure twice. Adding ARIA is
+  not automatically an improvement.
+- The admin tabs use `aria-pressed` on plain buttons rather than
+  `role="tab"`/`role="tablist"`. The tabs pattern also owes the user arrow-key
+  navigation between tabs; claiming the role without implementing the keyboard
+  contract is worse than not claiming it.
+
+**The skip link bug.** I added the usual `<a href="#main-content">` and it
+navigated to the root route instead of moving focus. The app has `<base href="/">`,
+so the browser resolves the bare fragment against the *base*, not the current
+URL — `/expenses` became `/#main-content`. A skip link that throws you off the
+page is worse than no skip link. It now handles the click, calls
+`preventDefault()`, and focuses `<main>` (which needs `tabindex="-1"` to be
+focusable at all). There's a test that tabs once, presses Enter, and asserts where
+focus landed.
+
+**What this does not claim.** axe catches somewhere between a third and a half of
+WCAG issues. It can prove a control has no accessible name; it cannot tell whether
+the name makes sense, whether the focus order is logical, or whether the thing is
+usable with a screen reader in practice. I have not tested with NVDA or VoiceOver.
+Zero automated violations is a floor, not a certificate — and given the European
+Accessibility Act now applies to a lot of what gets built in Austria, the
+difference between those two is worth being precise about.
+
+The suite is `frontend/e2e/a11y.spec.ts` and runs in CI against the real stack
+brought up by `docker compose`, so a regression fails the build rather than
+sitting undetected until someone opens the app with a keyboard.
+
+---
+
 ## Testing
 
-Backend went 20 → 34 tests, frontend 1 → 24.
+Backend went 20 → 48 tests, frontend 1 → 24, plus 8 accessibility tests in a
+headless browser.
 
 The frontend was the real gap: the only spec was the Angular CLI's generated
 "should create the app", and CI never ran `npm test` at all — it only built. So
@@ -274,7 +392,7 @@ guards, and API query-parameter construction.
 `AbstractIntegrationTest` holds the Postgres container as a `static` field so
 every integration class shares one database instead of starting its own.
 
-Line coverage: ~77% backend (JaCoCo), ~70% frontend core (karma-coverage).
+Line coverage: ~80% backend (JaCoCo), ~70% frontend core (karma-coverage).
 Not chasing a number — the untested remainder is mostly getters and DTOs.
 
 ### What isn't tested, and why
@@ -282,7 +400,9 @@ Not chasing a number — the untested remainder is mostly getters and DTOs.
 - The Groq call itself is never hit in tests; `AiCategoryClient` is an interface
   and the tests stub it. Testing that the real HTTP call works belongs in a
   contract test against a recorded response, not in a unit suite.
-- No end-to-end browser test. Cypress/Playwright would be the next addition.
+- There is now a Playwright suite, but it only covers accessibility. The
+  functional happy paths are still checked at the MockMvc level, not through a
+  browser.
 - The cache race in section 2 is not reproduced by a test — a reliable
   concurrency test needs two threads and a latch inside the transaction boundary,
   and I judged the after-commit listener plus a functional

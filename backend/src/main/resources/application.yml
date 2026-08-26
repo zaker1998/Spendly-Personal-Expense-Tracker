@@ -40,6 +40,10 @@ spendly:
     # Only enable where a proxy we control rewrites X-Forwarded-For, otherwise
     # the header is client-supplied and the limit is trivially bypassed.
     behind-proxy: ${RATE_LIMIT_BEHIND_PROXY:false}
+  export:
+    # Safety valve on the CSV export, not a product limit: the endpoint streams,
+    # so the cap bounds the response rather than the server's memory.
+    max-rows: ${EXPORT_MAX_ROWS:50000}
   # Creates the demo/admin accounts from the README. Public demo only.
   seed-demo-data: ${SEED_DEMO_DATA:false}
 

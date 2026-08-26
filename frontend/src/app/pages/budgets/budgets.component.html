@@ -6,18 +6,22 @@
     </div>
   </header>
 
-  <p class="error" *ngIf="error">{{ error }}</p>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
 
   <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
     <h2>{{ editingId ? 'Edit budget' : 'New budget' }}</h2>
     <div class="row">
-      <select formControlName="categoryId">
+      <label class="visually-hidden" for="budget-category">Category</label>
+      <select id="budget-category" formControlName="categoryId">
         <option value="">Overall</option>
         <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
       </select>
-      <input type="number" step="0.01" formControlName="amount" placeholder="Limit" />
-      <input type="number" formControlName="year" />
-      <input type="number" min="1" max="12" formControlName="month" />
+      <label class="visually-hidden" for="budget-amount">Monthly limit in euro</label>
+      <input id="budget-amount" type="number" step="0.01" formControlName="amount" placeholder="Limit" />
+      <label class="visually-hidden" for="budget-year">Year</label>
+      <input id="budget-year" type="number" formControlName="year" />
+      <label class="visually-hidden" for="budget-month">Month, 1 to 12</label>
+      <input id="budget-month" type="number" min="1" max="12" formControlName="month" />
       <button type="submit" [disabled]="saving">{{ saving ? 'Saving…' : editingId ? 'Update' : 'Add' }}</button>
       <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
       <button type="button" class="ghost" (click)="reload()">Reload period</button>
@@ -30,7 +34,10 @@
         <strong>{{ b.categoryName }}</strong>
         <span>{{ b.spentAmount | currency: b.currency }} / {{ b.limitAmount | currency: b.currency }}</span>
       </div>
-      <div class="bar">
+      <!-- Decorative: the figure and the over-budget state are both spelled out
+           in the footer below, so a progressbar role here would only make a
+           screen reader read the same number twice. -->
+      <div class="bar" aria-hidden="true">
         <div class="fill" [style.width.%]="b.percentUsed > 100 ? 100 : b.percentUsed"></div>
       </div>
       <div class="footer">
@@ -39,11 +46,25 @@
           ({{ b.percentUsed }}%)
         </span>
         <div class="actions">
-          <button type="button" class="ghost" (click)="edit(b)">Edit</button>
-          <button type="button" class="danger" (click)="remove(b)">Delete</button>
+          <button
+            type="button"
+            class="ghost"
+            [attr.aria-label]="'Edit the ' + b.categoryName + ' budget'"
+            (click)="edit(b)"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            class="danger"
+            [attr.aria-label]="'Delete the ' + b.categoryName + ' budget'"
+            (click)="remove(b)"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </article>
-    <p class="muted" *ngIf="!budgets.length">No budgets for this month yet.</p>
+    <p class="muted" role="status" *ngIf="!budgets.length">No budgets for this month yet.</p>
   </div>
 </section>

@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @RestController
 @RequestMapping("/api/expenses")
@@ -75,7 +76,7 @@ public class ExpenseController {
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
-    public ResponseEntity<byte[]> exportCsv(
+    public ResponseEntity<StreamingResponseBody> exportCsv(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -83,16 +84,14 @@ public class ExpenseController {
             @RequestParam(required = false) BigDecimal maxAmount,
             @RequestParam(required = false) String search
     ) {
-        String csv = expenseExportService.toCsv(
-                SecurityUtils.currentUserId(),
-                categoryId,
-                from,
-                to,
-                minAmount,
-                maxAmount,
-                search
-        );
-        byte[] body = csv.getBytes(StandardCharsets.UTF_8);
+        // Resolved here, not inside the lambda: the body is written on a
+        // separate thread once the request has been dispatched, and the
+        // SecurityContext is not on that thread.
+        Long userId = SecurityUtils.currentUserId();
+
+        StreamingResponseBody body = out -> expenseExportService.writeCsv(
+                out, userId, categoryId, from, to, minAmount, maxAmount, search);
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"expenses.csv\"")
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))

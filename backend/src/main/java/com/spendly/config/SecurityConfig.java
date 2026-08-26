@@ -3,6 +3,7 @@ package com.spendly.config;
 import com.spendly.security.JwtAuthenticationFilter;
 import com.spendly.security.RateLimitFilter;
 import com.spendly.security.RestSecurityErrorHandler;
+import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,6 +64,14 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // The CSV export streams its body, so the container
+                        // dispatches the request a second time as ASYNC once the
+                        // handler returns. Authorization already ran on the
+                        // REQUEST dispatch, and OncePerRequestFilter skips async
+                        // dispatches, so re-evaluating the rules here finds no
+                        // authentication and tries to write a 401 into a response
+                        // that has already been committed.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/swagger-ui/**",

@@ -11,4 +11,9 @@ import { AuthService } from '../core/auth.service';
 })
 export class ShellComponent {
   readonly auth = inject(AuthService);
+
+  skipToContent(event: Event, main: HTMLElement): void {
+    event.preventDefault();
+    main.focus();
+  }
 }

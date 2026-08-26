@@ -10,17 +10,18 @@
     </div>
   </header>
 
-  <form class="period" [formGroup]="period" (ngSubmit)="reload()">
+  <form class="period" [formGroup]="period" (ngSubmit)="reload()" aria-label="Reporting period">
     <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">‹</button>
     <select formControlName="month" (change)="reload()" aria-label="Month">
       <option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</option>
     </select>
-    <input type="number" formControlName="year" (change)="reload()" />
+    <label class="visually-hidden" for="period-year">Year</label>
+    <input id="period-year" type="number" formControlName="year" (change)="reload()" />
     <button type="button" class="ghost" (click)="shiftMonth(1)" aria-label="Next month">›</button>
   </form>
 
-  <p class="error" *ngIf="error">{{ error }}</p>
-  <p class="muted" *ngIf="loading">Loading dashboard…</p>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+  <p class="muted" role="status" *ngIf="loading">Loading dashboard…</p>
 
   <ng-container *ngIf="!loading && summary">
     <div class="hero-stat">
@@ -37,7 +38,9 @@
               <span>{{ row.categoryName }}</span>
               <strong>{{ row.total | currency: summary.currency }}</strong>
             </div>
-            <div class="chart-bar">
+            <!-- The category and its total are already read out by the label
+                 above; the bar is the same figure drawn twice. -->
+            <div class="chart-bar" aria-hidden="true">
               <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
             </div>
           </div>

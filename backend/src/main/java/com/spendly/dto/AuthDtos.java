@@ -1,6 +1,7 @@
 package com.spendly.dto;
 
 import com.spendly.domain.Role;
+import com.spendly.validation.BcryptSafePassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -12,13 +13,16 @@ public final class AuthDtos {
 
     public record RegisterRequest(
             @NotBlank @Email String email,
-            @NotBlank @Size(min = 8, max = 100) String password
+            @NotBlank @Size(min = 8) @BcryptSafePassword String password
     ) {
     }
 
     public record LoginRequest(
             @NotBlank @Email String email,
-            @NotBlank String password
+            // Bounded so an oversized body can't be turned into BCrypt work.
+            // Deliberately not @BcryptSafePassword: login should reject a wrong
+            // password, not explain the hashing algorithm's limits.
+            @NotBlank @Size(max = 200) String password
     ) {
     }
 

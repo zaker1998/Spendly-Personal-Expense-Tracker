@@ -53,7 +53,9 @@ button.ghost {
 }
 
 button.danger {
-  background: #e76f51;
+/* Darkened from the original brand tone: white text on it measured
+   3.3:1, under the 4.5:1 WCAG AA needs. Same hue, 5.0:1 now. */
+  background: #b1543d;
 }
 
 .list article {

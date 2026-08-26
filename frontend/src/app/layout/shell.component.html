@@ -1,7 +1,12 @@
+<!-- The href keeps this a real link, but the click is handled: with
+     <base href="/"> the browser resolves "#main-content" against the base and
+     navigates to the root route, so a plain fragment link would throw the user
+     off whatever page they were on. -->
+<a class="skip-link" href="#main-content" (click)="skipToContent($event, main)">Skip to main content</a>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand">Spendly</div>
-    <nav>
+    <nav aria-label="Main">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
       <a routerLink="/expenses" routerLinkActive="active">Expenses</a>
       <a routerLink="/categories" routerLinkActive="active">Categories</a>
@@ -11,11 +16,13 @@
       }
     </nav>
     <div class="user">
-      <span>{{ auth.session()?.email }}</span>
+      <span><span class="visually-hidden">Signed in as </span>{{ auth.session()?.email }}</span>
       <button type="button" (click)="auth.logout()">Log out</button>
     </div>
   </aside>
-  <main class="content">
+  <!-- tabindex="-1" so focus can be moved here; without it the browser scrolls
+       but the next Tab goes back to the top of the sidebar. -->
+  <main #main class="content" id="main-content" tabindex="-1">
     <router-outlet />
   </main>
 </div>

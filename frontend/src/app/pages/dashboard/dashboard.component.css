@@ -59,7 +59,9 @@ header p,
 }
 
 .btn {
-  background: #2a9d8f;
+/* Darkened from the original brand tone: white text on it measured
+   3.3:1, under the 4.5:1 WCAG AA needs. Same hue, 5.2:1 now. */
+  background: #1f7a6e;
   color: #fff;
   text-decoration: none;
   padding: 0.65rem 1rem;
@@ -73,7 +75,7 @@ header p,
 }
 
 .hero-stat {
-  background: linear-gradient(135deg, #264653, #2a9d8f);
+  background: linear-gradient(135deg, #264653, #1f7a6e);
   color: #fff;
   border-radius: 18px;
   padding: 1.4rem 1.6rem;
@@ -159,7 +161,7 @@ li.over span {
 }
 
 a {
-  color: #2a9d8f;
+  color: #1f7a6e;
 }
 
 @media (max-width: 800px) {

@@ -6,22 +6,35 @@
     </div>
   </header>
 
-  <div class="tabs">
-    <button type="button" [class.active]="tab === 'users'" (click)="showUsers()">Users</button>
-    <button type="button" [class.active]="tab === 'expenses'" (click)="showExpenses()">All expenses</button>
+  <!-- aria-pressed rather than role="tab": the full tabs pattern also owes the
+       user arrow-key navigation, and claiming the role without it is worse than
+       not claiming it. -->
+  <div class="tabs" role="group" aria-label="Admin views">
+    <button type="button" [attr.aria-pressed]="tab === 'users'" [class.active]="tab === 'users'" (click)="showUsers()">
+      Users
+    </button>
+    <button
+      type="button"
+      [attr.aria-pressed]="tab === 'expenses'"
+      [class.active]="tab === 'expenses'"
+      (click)="showExpenses()"
+    >
+      All expenses
+    </button>
   </div>
 
-  <p class="error" *ngIf="error">{{ error }}</p>
-  <p class="muted" *ngIf="loading">Loading…</p>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+  <p class="muted" role="status" *ngIf="loading">Loading…</p>
 
   <div class="panel" *ngIf="!loading && tab === 'users'">
     <table *ngIf="users.length; else noUsers">
+      <caption class="visually-hidden">Registered users</caption>
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Created</th>
+          <th scope="col">ID</th>
+          <th scope="col">Email</th>
+          <th scope="col">Role</th>
+          <th scope="col">Created</th>
         </tr>
       </thead>
       <tbody>
@@ -33,11 +46,11 @@
         </tr>
       </tbody>
     </table>
-    <ng-template #noUsers><p class="muted">No users found.</p></ng-template>
+    <ng-template #noUsers><p class="muted" role="status">No users found.</p></ng-template>
 
-    <div class="pager" *ngIf="totalPages > 1">
+    <nav class="pager" aria-label="User pages" *ngIf="totalPages > 1">
       <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
-      <span>Page {{ page + 1 }} of {{ totalPages }}</span>
+      <span aria-live="polite">Page {{ page + 1 }} of {{ totalPages }}</span>
       <button
         type="button"
         class="ghost"
@@ -46,24 +59,27 @@
       >
         Next
       </button>
-    </div>
+    </nav>
   </div>
 
   <div class="panel" *ngIf="!loading && tab === 'expenses'">
-    <form class="filters" [formGroup]="filters" (ngSubmit)="loadExpenses()">
-      <input type="date" formControlName="from" />
-      <input type="date" formControlName="to" />
+    <form class="filters" [formGroup]="filters" (ngSubmit)="loadExpenses()" aria-label="Filter all expenses">
+      <label class="visually-hidden" for="admin-from">From date</label>
+      <input id="admin-from" type="date" formControlName="from" />
+      <label class="visually-hidden" for="admin-to">To date</label>
+      <input id="admin-to" type="date" formControlName="to" />
       <button type="submit">Filter</button>
     </form>
 
     <table *ngIf="expenses.length; else noExpenses">
+      <caption class="visually-hidden">Expenses across every user</caption>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>User</th>
-          <th>Category</th>
-          <th>Description</th>
-          <th>Amount</th>
+          <th scope="col">Date</th>
+          <th scope="col">User</th>
+          <th scope="col">Category</th>
+          <th scope="col">Description</th>
+          <th scope="col">Amount</th>
         </tr>
       </thead>
       <tbody>
@@ -76,11 +92,11 @@
         </tr>
       </tbody>
     </table>
-    <ng-template #noExpenses><p class="muted">No expenses match these filters.</p></ng-template>
+    <ng-template #noExpenses><p class="muted" role="status">No expenses match these filters.</p></ng-template>
 
-    <div class="pager" *ngIf="totalPages > 1">
+    <nav class="pager" aria-label="Expense pages" *ngIf="totalPages > 1">
       <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
-      <span>Page {{ page + 1 }} of {{ totalPages }} · {{ totalElements }} total</span>
+      <span aria-live="polite">Page {{ page + 1 }} of {{ totalPages }} · {{ totalElements }} total</span>
       <button
         type="button"
         class="ghost"
@@ -89,6 +105,6 @@
       >
         Next
       </button>
-    </div>
+    </nav>
   </div>
 </section>

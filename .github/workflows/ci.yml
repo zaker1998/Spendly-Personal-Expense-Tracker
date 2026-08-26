@@ -53,6 +53,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: npm ci
 
       - name: Run tests
@@ -88,3 +90,58 @@ jobs:
         run: |
           terraform init -backend=false -input=false
           terraform validate
+
+  a11y:
+    name: Accessibility (axe-core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      # The suite drives the real app, so it needs the API and the database too.
+      - name: Start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the stack
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/actuator/health > /dev/null \
+               && curl -fsS http://localhost:4200 > /dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "stack did not come up in time"
+          docker compose logs --no-color --tail 100
+          exit 1
+
+      - name: Run accessibility tests
+        working-directory: frontend
+        run: npm run test:a11y
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

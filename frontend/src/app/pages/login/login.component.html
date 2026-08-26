@@ -13,13 +13,13 @@
       <input type="password" formControlName="password" autocomplete="current-password" />
     </label>
 
-    <p class="error" *ngIf="error">{{ error }}</p>
+    <p class="error" role="alert" *ngIf="error">{{ error }}</p>
 
     <button type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
     <p class="footer">No account? <a routerLink="/register">Create one</a></p>
     <p class="footer">
       Just looking around?
-      <a href="#" (click)="fillDemo(); $event.preventDefault()">Use the demo account</a>
+      <button type="button" class="link" (click)="fillDemo()">Use the demo account</button>
     </p>
   </form>
 </section>

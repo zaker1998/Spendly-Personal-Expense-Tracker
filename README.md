@@ -20,9 +20,10 @@ Personal expense tracker with Spring Boot + Angular.
 - Filters + pagination on expense list
 - Monthly dashboard with month picker + category chart, **cached with Caffeine**
 - Budgets with progress / over-budget
-- CSV export
+- CSV export (streamed, and neutralised against spreadsheet formula injection)
 - **Rate limiting** on auth + AI endpoints (per-IP fixed window, HTTP 429 + `Retry-After`)
 - Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s
+- **Accessible UI** — labelled controls, skip link, WCAG AA contrast; zero axe-core violations, checked in CI
 - Admin UI (users + all expenses), paged
 - Swagger UI
 - Prometheus metrics at `/actuator/prometheus`, including cache hit/miss counters
@@ -74,6 +75,8 @@ in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md)
 - **Single currency, enforced end to end** — amounts are summed in the monthly summary and in budget progress, so mixed currencies would produce a total that looks right and isn't. Rather than half-build multi-currency, the API rejects the concept: the server sets the code, a CHECK constraint backs it, and one constant (`AppCurrency`) is the only place to change when FX rates are actually modelled.
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
 - **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis. `X-Forwarded-For` is only trusted when the deployment declares a proxy in front (`RATE_LIMIT_BEHIND_PROXY`), because otherwise the header is client-supplied and rotating it would hand out an unlimited number of login attempts.
+- **Accessibility is measured, not asserted** — an axe-core suite runs against the real app in CI across every page and both admin tabs, so an unlabelled input or a contrast regression fails the build. It is a floor rather than a certificate: automated rules catch roughly a third of WCAG issues, and the app has not been tested with a screen reader. Details, including the two places where adding ARIA would have made things worse, are in the engineering notes.
+- **The CSV export streams** — it pages through the data 500 rows at a time and writes straight to the socket, deliberately without a surrounding transaction so a slow download cannot hold a pooled connection open. Chunked reads are sorted by `id`, because an unordered query is free to return a different order per `OFFSET` and rows would duplicate across chunk boundaries.
 - **Static assets are served from a CDN, not from the API host** — the SPA used to be behind the same free-tier instance as the API, so a cold start meant a blank page for up to a minute. On CloudFront the app renders from an edge cache immediately and only the first data call pays the wake-up. `/api/*` is a second behaviour on the same distribution, so the browser sees one origin, there is no preflight in front of the login request, and the API host is not baked into the bundle. The whole thing is Terraform ([`infra/`](infra/)).
 - **Every list endpoint is paged** — including the admin views. An admin screen that returns every expense in the system is the one query whose cost grows without bound.
 
@@ -135,6 +138,7 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 |---------|---------|---------|
 | `JWT_SECRET` | dev value | Must be ≥ 32 bytes; the app refuses to start otherwise |
 | `SEED_DEMO_DATA` | `false` | Create the demo/admin accounts above |
+| `EXPORT_MAX_ROWS` | `50000` | Backstop on the streamed CSV export |
 | `DATABASE_URL` | — | `postgres://user:pass@host/db` style URL. Split into the `SPRING_DATASOURCE_*` vars by `docker/entrypoint.sh`; set them directly instead if you prefer |
 | `SPRING_DATASOURCE_URL` | local Postgres | JDBC URL. Takes precedence over `DATABASE_URL` |
 | `PORT` | — | Mapped to `SERVER_PORT`; set automatically by most PaaS hosts |
@@ -281,11 +285,15 @@ Everything returning a collection of unknown size is paged (`page`, `size`, `sor
 ## Tests
 
 ```bash
-cd backend && ./mvnw test        # 34 tests, JaCoCo report in target/site/jacoco
+cd backend && ./mvnw test        # 48 tests, JaCoCo report in target/site/jacoco
 cd frontend && npm run test:ci   # 24 tests, headless Chrome + coverage
+
+docker compose up -d --build     # the a11y suite drives the real app
+cd frontend && npm run test:a11y # 8 tests, axe-core + Playwright
 ```
 
-Both suites run on every push (`.github/workflows/ci.yml`).
+All three run on every push (`.github/workflows/ci.yml`), along with
+`terraform fmt`/`validate` for `infra/`.
 
 **Backend** — unit tests (Mockito) cover the services, the AI suggestion fallback
 logic, the rate limiter and the JWT secret guard. Integration tests
@@ -300,7 +308,15 @@ one container via `AbstractIntegrationTest`.
 the interceptor's token attachment and 401-logout rule (and the login request it
 must *not* log out), the three route guards, and API parameter building.
 
-Line coverage is ~77% on the backend and ~70% on the frontend core.
+**Accessibility** — axe-core runs over every page and both admin tabs against the
+stack that `docker compose` brings up, failing on any WCAG 2.1 A/AA violation. It
+also asserts the two things a rules engine can't infer: that the skip link is the
+first tab stop and actually moves focus into `<main>`, and that every form control
+on the busiest page has an accessible name. This took the app from 24 automated
+violations to 0 — see [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md) for
+what that number does and doesn't mean.
+
+Line coverage is ~80% on the backend and ~70% on the frontend core.
 
 ## License
 
