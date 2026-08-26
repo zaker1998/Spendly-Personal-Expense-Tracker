@@ -1,0 +1,108 @@
+# Publishes the built SPA to S3 and invalidates the CloudFront cache.
+#
+# Everything this needs comes from `tofu output` in infra/terraform and is stored
+# as repository *variables*, not secrets -- none of the three values is sensitive,
+# and the credential itself is a short-lived OIDC token minted per run.
+# The job is skipped when they are unset, so a fork still gets a green CI.
+
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required to request the OIDC token
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & publish to CloudFront
+    runs-on: ubuntu-latest
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test
+        working-directory: frontend
+        run: npm run test:ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build -- --configuration=production
+
+      - name: Assume deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-central-1' }}
+
+      - name: Publish to S3
+        env:
+          BUCKET: ${{ vars.AWS_S3_BUCKET }}
+        run: |
+          set -euo pipefail
+          dist=frontend/dist/frontend/browser
+
+          # One sync owns the bucket: --delete prunes the hashed bundles of
+          # previous releases, which nothing else would ever clean up.
+          aws s3 sync "$dist" "s3://$BUCKET" --delete --no-progress \
+            --cache-control 'public, max-age=300'
+
+          # Those bundles are content-hashed, so the bytes behind a given URL can
+          # never change. A server-side metadata rewrite gives them a year without
+          # re-uploading anything.
+          for ext in js css; do
+            case $ext in
+              js) type='text/javascript' ;;
+              css) type='text/css' ;;
+            esac
+            aws s3 cp "s3://$BUCKET" "s3://$BUCKET" --recursive --no-progress \
+              --exclude '*' --include "*.$ext" \
+              --metadata-directive REPLACE \
+              --content-type "$type; charset=utf-8" \
+              --cache-control 'public, max-age=31536000, immutable'
+          done
+
+          # index.html is what names the hashed files, so it is the one object
+          # that always has to be revalidated.
+          aws s3 cp "$dist/index.html" "s3://$BUCKET/index.html" --no-progress \
+            --cache-control 'no-cache' \
+            --content-type 'text/html; charset=utf-8'
+
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -euo pipefail
+          # '/*' counts as a single path against the 1,000 free invalidation
+          # paths per month, so there is no reason to enumerate files.
+          id=$(aws cloudfront create-invalidation \
+                 --distribution-id "$DISTRIBUTION_ID" \
+                 --paths '/*' \
+                 --query 'Invalidation.Id' --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DISTRIBUTION_ID" --id "$id"
+
+      - name: Summary
+        run: echo "Deployed to https://${{ vars.AWS_CLOUDFRONT_DOMAIN }}" >> "$GITHUB_STEP_SUMMARY"

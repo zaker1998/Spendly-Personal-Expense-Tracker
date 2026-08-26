@@ -6,7 +6,7 @@ Personal expense tracker with Spring Boot + Angular.
 
 **Live:** https://spendly-33ek.onrender.com
 
-**Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI
+**Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI, Terraform (AWS S3 + CloudFront)
 
 [![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
 
@@ -33,9 +33,13 @@ Personal expense tracker with Spring Boot + Angular.
 
 ```mermaid
 flowchart LR
-    subgraph Client
-        NG[Angular 19 SPA]
+    BROWSER[Browser]
+
+    subgraph Edge["CloudFront (Terraform)"]
+        CF{{"one origin<br/>two behaviours"}}
     end
+
+    S3[(S3<br/>Angular 19 bundle)]
 
     subgraph Backend["Spring Boot 3.4 (Java 21)"]
         SEC[JWT Security Filter]
@@ -49,7 +53,9 @@ flowchart LR
     DB[(PostgreSQL<br/>Flyway migrations)]
     LLM[Groq API]
 
-    NG -->|"HTTPS /api (Bearer token)"| SEC --> API --> SVC
+    BROWSER -->|HTTPS| CF
+    CF -->|"/* (cached at the edge)"| S3
+    CF -->|"/api/* (Bearer token, uncached)"| SEC --> API --> SVC
     SVC --> CACHE
     SVC --> JPA --> DB
     SVC --> AI -->|optional| LLM
@@ -68,6 +74,7 @@ in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md)
 - **Single currency, enforced end to end** — amounts are summed in the monthly summary and in budget progress, so mixed currencies would produce a total that looks right and isn't. Rather than half-build multi-currency, the API rejects the concept: the server sets the code, a CHECK constraint backs it, and one constant (`AppCurrency`) is the only place to change when FX rates are actually modelled.
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
 - **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis. `X-Forwarded-For` is only trusted when the deployment declares a proxy in front (`RATE_LIMIT_BEHIND_PROXY`), because otherwise the header is client-supplied and rotating it would hand out an unlimited number of login attempts.
+- **Static assets are served from a CDN, not from the API host** — the SPA used to be behind the same free-tier instance as the API, so a cold start meant a blank page for up to a minute. On CloudFront the app renders from an edge cache immediately and only the first data call pays the wake-up. `/api/*` is a second behaviour on the same distribution, so the browser sees one origin, there is no preflight in front of the login request, and the API host is not baked into the bundle. The whole thing is Terraform ([`infra/`](infra/)).
 - **Every list endpoint is paged** — including the admin views. An admin screen that returns every expense in the system is the one query whose cost grows without bound.
 
 ## Run locally
@@ -134,8 +141,41 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 
 ## Deployment
 
-The demo runs as a single container (SPA + API, see the root `Dockerfile`) on
-Render's free tier, against a **Neon** Postgres instance.
+Three pieces, each on the thing it is actually good at:
+
+| | Where | Provisioned by |
+|--|--|--|
+| Angular bundle | AWS S3 behind CloudFront | Terraform (`infra/`) |
+| Spring Boot API | Render, Docker | `render.yaml` |
+| PostgreSQL | Neon | — |
+
+### Frontend — S3 + CloudFront, in Terraform
+
+`infra/terraform` builds a private S3 bucket, a CloudFront distribution in front
+of it with Origin Access Control, a security-headers policy, and an IAM role that
+GitHub Actions assumes over OIDC — so CI deploys with a short-lived token and
+there is no AWS access key anywhere in the repo.
+
+The distribution has two behaviours: `/*` serves the bundle from the edge cache,
+`/api/*` proxies to Render uncached. That keeps the app one origin from the
+browser's point of view, which is why `environment.prod.ts` can still just say
+`apiUrl: '/api'`.
+
+Angular's client-side routes are resolved by a CloudFront Function on the static
+behaviour rather than by a distribution-wide 403/404 error mapping — the usual
+recipe would rewrite the API's own 403s and 404s into `200` HTML. The reasoning
+is in [`infra/terraform/functions/spa-router.js`](infra/terraform/functions/spa-router.js).
+
+Deploys are `.github/workflows/deploy-frontend.yml`: build, `s3 sync --delete`,
+a metadata pass that marks the content-hashed bundles `immutable` for a year
+while `index.html` stays `no-cache`, then one CloudFront invalidation. Setup and
+the outputs to copy are in [`infra/README.md`](infra/README.md).
+
+The root `Dockerfile` still builds the all-in-one image (SPA + API), which is
+what `render.yaml` deploys and what makes the project runnable without an AWS
+account at all.
+
+### Database — Neon rather than Render
 
 Splitting the database off the host is deliberate. Render's free Postgres
 expires after a fixed window and is then deleted — acceptable for a scratch
@@ -157,9 +197,11 @@ Flyway builds the schema on first boot, so a fresh, empty database needs no
 setup step. With `SEED_DEMO_DATA=true` the demo accounts are created on the same
 startup.
 
-> Cold start: on the free tier the instance sleeps after ~15 minutes idle and
-> takes up to a minute to wake. `/actuator/health` includes a database check, so
-> a scheduled ping against it keeps both the instance and the Neon compute warm.
+> Cold start: on the free tier the API sleeps after ~15 minutes idle and takes up
+> to a minute to wake. Serving the SPA from CloudFront means that no longer shows
+> as a blank page — the app renders instantly and only the first data call waits.
+> `/actuator/health` includes a database check, so a scheduled ping against it
+> keeps both the instance and the Neon compute warm.
 
 ## Screenshots
 
@@ -192,8 +234,10 @@ rather than failing.
 ```
 backend/     Spring Boot API
 frontend/    Angular app
-Dockerfile   optional all-in-one image (SPA + API)
-render.yaml  optional Render blueprint
+infra/       Terraform for the S3 + CloudFront frontend
+docs/        engineering notes, screenshots
+Dockerfile   all-in-one image (SPA + API)
+render.yaml  Render blueprint for the API
 ```
 
 ## Dev without full Compose
@@ -237,7 +281,7 @@ Everything returning a collection of unknown size is paged (`page`, `size`, `sor
 ## Tests
 
 ```bash
-cd backend && ./mvnw test        # 28 tests, JaCoCo report in target/site/jacoco
+cd backend && ./mvnw test        # 34 tests, JaCoCo report in target/site/jacoco
 cd frontend && npm run test:ci   # 24 tests, headless Chrome + coverage
 ```
 

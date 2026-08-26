@@ -43,3 +43,14 @@ postgres-data/
 # Test / coverage
 coverage/
 .nyc_output/
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+override.tf
+override.tf.json
+*_override.tf

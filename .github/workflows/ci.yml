@@ -66,3 +66,25 @@ jobs:
       - name: Build Docker image
         working-directory: frontend
         run: docker build -t spendly-frontend:ci .
+
+  infra:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Format check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      # -backend=false: no state and no credentials needed just to type-check
+      # the configuration.
+      - name: Validate
+        working-directory: infra/terraform
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate

@@ -1,0 +1,10 @@
+# cp terraform.tfvars.example terraform.tfvars and adjust.
+# Every value already has a working default; these are the ones worth changing
+# if you fork the project.
+
+region            = "eu-central-1"
+api_origin_domain = "spendly-33ek.onrender.com"
+github_repository = "zaker1998/Spendly-Personal-Expense-Tracker"
+
+# Set to false if this AWS account already has a GitHub OIDC provider.
+create_github_oidc_provider = true
