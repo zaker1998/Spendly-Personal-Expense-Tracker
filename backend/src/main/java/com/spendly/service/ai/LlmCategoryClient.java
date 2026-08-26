@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Calls a chat-completions style LLM API (Groq by default) to classify an
@@ -36,8 +37,20 @@ public class LlmCategoryClient implements AiCategoryClient {
             @Value("${spendly.ai.model:llama-3.1-8b-instant}") String model,
             @Value("${spendly.ai.timeout-ms:5000}") int timeoutMs
     ) {
-        this.enabled = enabled && apiKey != null && !apiKey.isBlank();
+        boolean hasKey = apiKey != null && !apiKey.isBlank();
+        this.enabled = enabled && hasKey;
         this.model = model;
+
+        // Falling back to the heuristic is a silent, successful-looking response,
+        // so say once at startup which mode we are actually in.
+        if (this.enabled) {
+            log.info("AI category suggestions enabled (model={}, baseUrl={})", model, baseUrl);
+        } else if (!hasKey) {
+            log.warn("AI category suggestions disabled: spendly.ai.api-key is not set. "
+                    + "Suggestions will use the keyword heuristic.");
+        } else {
+            log.info("AI category suggestions disabled by configuration.");
+        }
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofMillis(timeoutMs));
@@ -85,8 +98,12 @@ public class LlmCategoryClient implements AiCategoryClient {
             }
             String content = response.choices().get(0).message().content();
             return Optional.ofNullable(content).map(String::trim).filter(s -> !s.isEmpty());
+        } catch (RestClientResponseException e) {
+            log.warn("AI category suggestion rejected by provider ({}), falling back to heuristic: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            return Optional.empty();
         } catch (Exception e) {
-            log.warn("AI category suggestion failed, falling back to heuristic: {}", e.getMessage());
+            log.warn("AI category suggestion failed, falling back to heuristic: {}", e.toString());
             return Optional.empty();
         }
     }

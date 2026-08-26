@@ -13,7 +13,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class SpendlyApplicationTests {
 
     @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine")
             .withDatabaseName("spendly")
             .withUsername("spendly")
             .withPassword("spendly");
