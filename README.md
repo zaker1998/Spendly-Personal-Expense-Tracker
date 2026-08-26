@@ -163,8 +163,10 @@ startup.
 
 ## Screenshots
 
-**Expenses** — filtering, pagination, CSV export, and the category suggestion that
-asks an LLM to choose from your own categories.
+**Expenses** — filtering, pagination, CSV export, and the category suggestion.
+The LLM is asked to choose from your own category names; when no key is
+configured (as in this shot) the endpoint degrades to the keyword heuristic
+rather than failing.
 
 ![Expenses](docs/screenshots/expenses.png)
 

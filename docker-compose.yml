@@ -9,7 +9,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data-18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U spendly -d spendly"]
       interval: 5s
@@ -50,4 +50,4 @@ services:
       - backend
 
 volumes:
-  postgres-data:
+  postgres-data-18:
