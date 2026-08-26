@@ -30,6 +30,54 @@ class CategorySuggestionServiceTest {
     @InjectMocks
     private CategorySuggestionService service;
 
+    @Test
+    void acceptsAnLlmAnswerWithTrailingPunctuation() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(true);
+        when(aiCategoryClient.pickCategory(anyString(), anyList())).thenReturn(Optional.of("Food."));
+
+        SuggestCategoryResponse response = service.suggest(1L, "lunch somewhere");
+
+        assertThat(response.source()).isEqualTo("AI");
+        assertThat(response.categoryName()).isEqualTo("Food");
+    }
+
+    @Test
+    void acceptsAnLlmAnswerWrappedInQuotesOrPrefixed() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(true);
+        when(aiCategoryClient.pickCategory(anyString(), anyList()))
+                .thenReturn(Optional.of("Category: \"Transport\""));
+
+        SuggestCategoryResponse response = service.suggest(1L, "train ticket");
+
+        assertThat(response.source()).isEqualTo("AI");
+        assertThat(response.categoryName()).isEqualTo("Transport");
+    }
+
+    @Test
+    void neverReturnsACategoryTheUserDoesNotOwn() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(true);
+        when(aiCategoryClient.pickCategory(anyString(), anyList()))
+                .thenReturn(Optional.of("Cryptocurrency"));
+
+        SuggestCategoryResponse response = service.suggest(1L, "bought some bitcoin");
+
+        assertThat(response.source()).isNotEqualTo("AI");
+        assertThat(response.categoryName()).isNotEqualTo("Cryptocurrency");
+    }
+
+    @Test
+    void resolvesAmbiguousDescriptionsToTheMoreSpecificGroup() {
+        when(categoryRepository.findByUserIdOrderByNameAsc(anyLong())).thenReturn(defaultCategories());
+        when(aiCategoryClient.isEnabled()).thenReturn(false);
+
+        assertThat(service.suggest(1L, "cinema tickets").categoryName()).isEqualTo("Leisure");
+        assertThat(service.suggest(1L, "Wiener Linien annual ticket").categoryName()).isEqualTo("Transport");
+        assertThat(service.suggest(1L, "Billa groceries").categoryName()).isEqualTo("Food");
+    }
+
     private List<Category> defaultCategories() {
         return List.of(
                 category(1L, "Food"),
