@@ -62,7 +62,7 @@
       </thead>
       <tbody>
         <tr *ngFor="let e of expenses">
-          <td>{{ e.spentOn | date: 'mediumDate' : 'UTC' }}</td>
+          <td>{{ e.spentOn | date: 'mediumDate' }}</td>
           <td>
             <span class="dot" aria-hidden="true" [style.background]="e.categoryColor || '#999'"></span>
             {{ e.categoryName }}
@@ -73,7 +73,7 @@
             <button
               type="button"
               class="ghost"
-              [attr.aria-label]="'Edit ' + (e.description || e.categoryName) + ' from ' + (e.spentOn | date: 'mediumDate' : 'UTC')"
+              [attr.aria-label]="'Edit ' + (e.description || e.categoryName) + ' from ' + (e.spentOn | date: 'mediumDate')"
               (click)="edit(e)"
             >
               Edit
@@ -81,7 +81,7 @@
             <button
               type="button"
               class="danger"
-              [attr.aria-label]="'Delete ' + (e.description || e.categoryName) + ' from ' + (e.spentOn | date: 'mediumDate' : 'UTC')"
+              [attr.aria-label]="'Delete ' + (e.description || e.categoryName) + ' from ' + (e.spentOn | date: 'mediumDate')"
               (click)="remove(e)"
             >
               Delete

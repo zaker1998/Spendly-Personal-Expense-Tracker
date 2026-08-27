@@ -28,7 +28,11 @@ async function signIn(page: Page, user: { email: string; password: string }) {
 }
 
 async function violations(page: Page) {
-  await page.addScriptTag({ content: AXE_SOURCE });
+  // page.evaluate, not addScriptTag: the deployed app ships a
+  // `script-src 'self'` CSP, which blocks an injected inline <script>. Evaluating
+  // through the debugger protocol instead means the suite works against the real
+  // CloudFront deployment without weakening the policy for the test.
+  await page.evaluate(AXE_SOURCE);
   const result = await page.evaluate(
     async (tags) => (await (window as any).axe.run(document, { runOnly: { type: 'tag', values: tags } })).violations,
     WCAG

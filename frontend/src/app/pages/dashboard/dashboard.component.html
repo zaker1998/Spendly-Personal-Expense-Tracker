@@ -72,7 +72,7 @@
           <li *ngFor="let e of recent">
             <div>
               <strong>{{ e.description || e.categoryName }}</strong>
-              <small>{{ e.spentOn | date: 'mediumDate' : 'UTC' }} · {{ e.categoryName }}</small>
+              <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
             </div>
             <span>{{ e.amount | currency: e.currency }}</span>
           </li>

@@ -273,6 +273,24 @@ bundle on a CDN.
 **The general point:** a security header you haven't verified against the actual
 built artefact is a guess. This one would have shipped a fully broken page.
 
+**A postscript, once it was deployed.** The accessibility suite passed locally and
+then failed on all seven axe checks against CloudFront, with
+`Executing inline script violates the following Content Security Policy directive
+'script-src 'self''`. Playwright's `addScriptTag({ content })` injects an inline
+`<script>`, and the policy blocked it — the policy working exactly as intended.
+
+The local runs had never exercised it: `docker compose` serves the SPA from nginx,
+which sets no CSP, so the header only exists on the CloudFront path. Injecting
+through `page.evaluate` instead goes via the debugger protocol, which is not
+subject to page CSP, so the suite now runs against the real deployment with the
+policy still enforced. The alternative — `bypassCSP: true` on the browser context —
+would have made the test pass by turning off the thing under test.
+
+Two lessons, and the second is the bigger one. A test that only ever runs against
+a local stand-in is weaker than it looks when the stand-in differs from production
+in a security-relevant way. And the failure was *good news*: it is the only direct
+evidence I have that the CSP is actually enforced end to end.
+
 ---
 
 ## 9. The CSV export contradicted the rule the README brags about
@@ -392,10 +410,57 @@ sitting undetected until someone opens the app with a keyboard.
 
 ---
 
+## 11. Every date was a day early for everyone east of UTC
+
+Found while filling the demo account with realistic data: the API returned
+`2026-08-27` for an expense and the UI rendered **Aug 26**. Consistently, one day
+early, on all three screens.
+
+The templates formatted with `{{ e.spentOn | date: 'mediumDate' : 'UTC' }}`. The
+`'UTC'` looks like the careful, defensive choice — it is the cause.
+
+`spentOn` is a `LocalDate`: a calendar date with no instant and no zone attached.
+Angular's date pipe, handed the date-only string `"2026-08-27"`, parses it as
+**local midnight**. Formatting that instant in a *different* zone then moves it.
+In Vienna (UTC+2) local midnight on the 27th is 22:00 UTC on the 26th, so the
+pipe renders the 26th.
+
+Measured across three zones with the parse Angular actually performs:
+
+| Browser timezone | with `'UTC'` | without |
+|---|---|---|
+| Europe/Vienna | **Aug 26** | Aug 27 |
+| UTC | Aug 27 | Aug 27 |
+| America/New_York | Aug 27 | Aug 27 |
+
+So it was wrong for every user east of UTC and correct everywhere else — which
+is to say, wrong for essentially everyone this app is aimed at, and right on the
+machine that would have tested it.
+
+**The fix** is to delete the argument. Parse and format then use the same zone,
+the offsets cancel, and the calendar date round-trips whatever the browser is set
+to. The general rule: a value with no timezone must never be converted between
+timezones. `'UTC'` is the correct argument for an `Instant` and the wrong one for
+a `LocalDate`, and the type is the thing that tells you which.
+
+**Why no existing test caught it, and what does now.** GitHub's runners are UTC,
+where the bug does not reproduce. The regression test therefore pins the browser
+to `Europe/Vienna` (`e2e/dates.spec.ts`), intercepts the `/api/expenses` response
+the app itself makes, and asserts the rendered column equals the dates in that
+payload. I confirmed it is a real guard by putting `'UTC'` back and watching it
+fail before restoring the fix — a regression test that has never failed is a
+hypothesis, not a test.
+
+Worth noting this is the second timezone bug in the portfolio: the Bachata Vienna
+booking form mis-dated same-day bookings near midnight because the server ran in
+UTC. Same root cause from the opposite direction — a date treated as an instant.
+
+---
+
 ## Testing
 
-Backend went 20 → 48 tests, frontend 1 → 24, plus 8 accessibility tests in a
-headless browser.
+Backend went 20 → 48 tests, frontend 1 → 24, plus 9 browser tests (8 accessibility,
+1 timezone regression).
 
 The frontend was the real gap: the only spec was the Angular CLI's generated
 "should create the app", and CI never ran `npm test` at all — it only built. So
@@ -415,9 +480,8 @@ Not chasing a number — the untested remainder is mostly getters and DTOs.
 - The Groq call itself is never hit in tests; `AiCategoryClient` is an interface
   and the tests stub it. Testing that the real HTTP call works belongs in a
   contract test against a recorded response, not in a unit suite.
-- There is now a Playwright suite, but it only covers accessibility. The
-  functional happy paths are still checked at the MockMvc level, not through a
-  browser.
+- The Playwright suite covers accessibility and date rendering. The functional
+  happy paths are still checked at the MockMvc level, not through a browser.
 - The cache race in section 2 is not reproduced by a test — a reliable
   concurrency test needs two threads and a latch inside the transaction boundary,
   and I judged the after-commit listener plus a functional

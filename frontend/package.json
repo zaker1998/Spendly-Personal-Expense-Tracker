@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadlessCI --code-coverage",
-    "test:a11y": "playwright test"
+    "test:e2e": "playwright test"
   },
   "private": true,
   "dependencies": {

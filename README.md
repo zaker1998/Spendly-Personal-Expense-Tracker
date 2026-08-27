@@ -4,13 +4,15 @@ Personal expense tracker with Spring Boot + Angular.
 
 ![Spendly dashboard](docs/screenshots/dashboard.png)
 
-**Live:** https://spendly-33ek.onrender.com
+**Live:** https://d26ecks03gnq4n.cloudfront.net
 
 **Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI, Terraform (AWS S3 + CloudFront)
 
 [![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
 
-> The live demo runs on Render's free tier — the first request after idle can take up to a minute while the instance wakes up.
+> The SPA is served from CloudFront, so the app itself loads immediately. The API
+> behind it is on Render's free tier and is kept awake by a scheduled ping; if it
+> has been asleep, the first data request can still take a moment.
 
 ## Features
 
@@ -97,8 +99,20 @@ Postgres is on host port **5433**, API on **8081** (so they don't clash with oth
 ### Demo users
 
 Seeded only when `SEED_DEMO_DATA=true`, which `docker compose` and the public
-Render demo both set on purpose. It is **off by default** so no real deployment
-ever comes up with a known admin password.
+demo both set on purpose. It is **off by default** so no real deployment ever
+comes up with a known admin password.
+
+The demo account gets three rolling months of plausible Vienna spending — about
+125 expenses across rent and Betriebskosten, a Wiener Linien pass, groceries,
+Kaffeehaus visits, ÖBB trips and the odd Heuriger — with monthly budgets set a
+little above what actually gets spent, so most bars sit in the 70–95% band and a
+couple go over. Amounts come from a fixed random seed, so every deploy produces
+the same figures and the screenshots above stay true.
+
+**The demo user's data is rebuilt on every startup.** Visitors add test rows, and
+without a reset what the next person opens is junk piled around stale expenses;
+rebuilding also rolls the three-month window forward so the dashboard always has
+a current month. The admin account is left alone.
 
 | Email | Password | Role |
 |-------|----------|------|
@@ -217,9 +231,11 @@ startup.
 ## Screenshots
 
 **Expenses** — filtering, pagination, CSV export, and the category suggestion.
-The LLM is asked to choose from your own category names; when no key is
-configured (as in this shot) the endpoint degrades to the keyword heuristic
-rather than failing.
+The LLM is asked to choose from your own category names and its answer is checked
+against the database before it is returned, so the label reads *AI suggests* only
+when a real model picked a category you actually own. Without a key, or on any
+provider failure, the same endpoint answers from the keyword heuristic and the
+label drops to *Suggested*.
 
 ![Expenses](docs/screenshots/expenses.png)
 
@@ -295,8 +311,8 @@ Everything returning a collection of unknown size is paged (`page`, `size`, `sor
 cd backend && ./mvnw test        # 48 tests, JaCoCo report in target/site/jacoco
 cd frontend && npm run test:ci   # 24 tests, headless Chrome + coverage
 
-docker compose up -d --build     # the a11y suite drives the real app
-cd frontend && npm run test:a11y # 8 tests, axe-core + Playwright
+docker compose up -d --build     # the browser suite drives the real app
+cd frontend && npm run test:e2e  # 9 tests, Playwright + axe-core
 ```
 
 All three run on every push (`.github/workflows/ci.yml`), along with
@@ -314,6 +330,12 @@ one container via `AbstractIntegrationTest`.
 **Frontend** — the core layer is specced: session persistence and restore,
 the interceptor's token attachment and 401-logout rule (and the login request it
 must *not* log out), the three route guards, and API parameter building.
+
+**Browser** — one Playwright suite against the stack `docker compose` brings up.
+Besides accessibility it pins the browser to `Europe/Vienna` and asserts the
+expense list renders the dates the API actually returned: `spentOn` is a
+`LocalDate`, and formatting it in a fixed timezone shifted every date a day
+earlier for anyone east of UTC while looking correct on a UTC CI runner.
 
 **Accessibility** — axe-core runs over every page and both admin tabs against the
 stack that `docker compose` brings up, failing on any WCAG 2.1 A/AA violation. It

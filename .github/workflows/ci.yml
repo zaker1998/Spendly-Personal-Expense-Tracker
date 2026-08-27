@@ -92,7 +92,7 @@ jobs:
           terraform validate
 
   a11y:
-    name: Accessibility (axe-core)
+    name: Browser tests (axe-core + Playwright)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,9 +131,9 @@ jobs:
           docker compose logs --no-color --tail 100
           exit 1
 
-      - name: Run accessibility tests
+      - name: Run browser tests
         working-directory: frontend
-        run: npm run test:a11y
+        run: npm run test:e2e
 
       - name: Upload Playwright report
         if: failure()
