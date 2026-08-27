@@ -18,6 +18,9 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
+  github_owner     = split("/", var.github_repository)[0]
+  github_repo_name = split("/", var.github_repository)[1]
+
   github_oidc_arn = var.create_github_oidc_provider ? one(aws_iam_openid_connect_provider.github[*].arn) : one(data.aws_iam_openid_connect_provider.github[*].arn)
 }
 
@@ -37,12 +40,23 @@ data "aws_iam_policy_document" "deploy_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Pinned to one branch of one repo. A wildcard on `sub` would let a pull
-    # request from a fork assume the role and publish whatever it likes.
+    # Pinned to one branch of one repo. A blanket wildcard on `sub` would let a
+    # pull request from a fork assume the role and publish whatever it likes.
+    #
+    # Two patterns because GitHub changed the claim. The subject used to be
+    #   repo:<owner>/<repo>:ref:refs/heads/<branch>
+    # and now carries immutable numeric ids so that renaming an account or a
+    # repository cannot silently keep an old grant alive:
+    #   repo:<owner>@<ownerId>/<repo>@<repoId>:ref:refs/heads/<branch>
+    # The ids are the only wildcarded part: owner, repository and branch all
+    # still have to match exactly, so a fork cannot satisfy this.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.github_deploy_branch}"]
+      values = [
+        "repo:${var.github_repository}:ref:refs/heads/${var.github_deploy_branch}",
+        "repo:${local.github_owner}@*/${local.github_repo_name}@*:ref:refs/heads/${var.github_deploy_branch}",
+      ]
     }
   }
 }
