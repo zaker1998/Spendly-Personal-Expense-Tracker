@@ -214,6 +214,21 @@ bad deploy recoverable, but it also means every release leaves a full set of dea
 object versions behind. A lifecycle rule expires non-current versions after 30
 days.
 
+**What deploying it actually taught me.** Two numbers only exist because the
+stack is up: static content now answers in **0.25s** cold and **0.05s** from the
+edge cache, against **52s** measured straight from the sleeping Render instance.
+That is the whole point of the split, and it is worth quoting as a measurement
+rather than an expectation.
+
+The unwelcome one: CloudFront's origin read timeout maxes out at **60s** without
+a quota increase, and the wake-up is 52s. Eight seconds of headroom. So the first
+API call after an idle period can come back as a hard 504 instead of a slow
+success — I watched exactly that happen on the first request after the apply. The
+keep-warm ping was on the "nice to have" list before; putting a CDN in front
+promoted it to a dependency, because the CDN turned a slow path into a failing
+one. Worth remembering that latency budgets compose: a component that tolerates a
+52s origin is fine until something upstream decides 60s is the limit.
+
 **Why OIDC and not an access key.** The deploy role is assumed by GitHub Actions
 through the OIDC provider, with the trust policy pinned to
 `repo:<owner>/<repo>:ref:refs/heads/main`. Nothing long-lived exists to leak or

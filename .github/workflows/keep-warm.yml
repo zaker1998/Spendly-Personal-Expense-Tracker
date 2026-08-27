@@ -1,0 +1,57 @@
+
+
+name: Keep the demo warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping /actuator/health
+    runs-on: ubuntu-latest
+    if: vars.KEEPWARM_URL != ''
+    timeout-minutes: 10
+
+    steps:
+      - name: Ping
+        env:
+          URL: ${{ vars.KEEPWARM_URL }}
+        run: |
+          set -uo pipefail
+
+          # A cold start is a slow success, not a failure, so each attempt gets
+          # more than the measured wake-up time before it is given up on.
+          attempts=3
+          timeout=120
+
+          for i in $(seq 1 "$attempts"); do
+            start=$(date +%s)
+            # curl already writes 000 via -w when it fails, so normalise on the
+            # assignment rather than echoing a second one into the value.
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time "$timeout" "$URL") || code=000
+            elapsed=$(( $(date +%s) - start ))
+
+            if [ "$code" = "200" ]; then
+              echo "attempt $i: HTTP $code in ${elapsed}s"
+              {
+                echo "Awake in **${elapsed}s** (HTTP $code, attempt $i of $attempts)."
+                [ "$elapsed" -gt 15 ] && echo "" && echo "> Slow enough to have been a cold start."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "attempt $i: HTTP $code after ${elapsed}s"
+            [ "$i" -lt "$attempts" ] && sleep $(( i * 15 ))
+          done
+
+          echo "The demo did not respond after $attempts attempts." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::$URL unreachable after $attempts attempts"
+          exit 1

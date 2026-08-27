@@ -202,11 +202,17 @@ Flyway builds the schema on first boot, so a fresh, empty database needs no
 setup step. With `SEED_DEMO_DATA=true` the demo accounts are created on the same
 startup.
 
-> Cold start: on the free tier the API sleeps after ~15 minutes idle and takes up
-> to a minute to wake. Serving the SPA from CloudFront means that no longer shows
-> as a blank page — the app renders instantly and only the first data call waits.
-> `/actuator/health` includes a database check, so a scheduled ping against it
-> keeps both the instance and the Neon compute warm.
+> **Cold start.** On the free tier the API sleeps after ~15 minutes idle and a
+> measured wake-up takes about 52s. Serving the SPA from CloudFront means that no
+> longer shows as a blank page — the app renders from the edge in well under a
+> second and only the first data call waits.
+>
+> That first call still matters: CloudFront's origin read timeout caps at 60s,
+> which leaves little room above a 52s wake-up, so a sleeping instance risks a 504
+> rather than a slow success. `.github/workflows/keep-warm.yml` pings
+> `/actuator/health` on a schedule to avoid it — one request, and because that
+> endpoint includes a database check it warms the Neon compute too. Set the
+> `KEEPWARM_URL` repository variable to enable it; forks skip the job.
 
 ## Screenshots
 
