@@ -5,12 +5,17 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -81,6 +86,36 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex) {
         return ResponseEntity.badRequest()
                 .body(ApiError.of(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'"));
+    }
+
+    /**
+     * Wrong HTTP verb on a real path.
+     *
+     * <p>Without this the exception falls through to the catch-all below and a
+     * client mistake is reported as a 500 — and logged at ERROR with a stack
+     * trace, so every bot probing endpoints with the wrong method buries the
+     * failures that actually matter.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        HttpHeaders headers = new HttpHeaders();
+        Set<HttpMethod> supported = ex.getSupportedHttpMethods();
+        if (supported != null && !supported.isEmpty()) {
+            // RFC 9110: a 405 response must say which methods are allowed.
+            headers.setAllow(supported);
+        }
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .headers(headers)
+                .body(ApiError.of(HttpStatus.METHOD_NOT_ALLOWED,
+                        ex.getMethod() + " is not supported for this endpoint"));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
+        String received = ex.getContentType() == null ? "none" : ex.getContentType().toString();
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiError.of(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                        "Content-Type " + received + " is not supported; use application/json"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

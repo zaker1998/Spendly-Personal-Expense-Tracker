@@ -2,8 +2,10 @@ package com.spendly;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -227,6 +229,28 @@ class ExpenseApiIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(csv).doesNotContain(",=HYPERLINK");
         assertThat(csv).contains("'=HYPERLINK");
+    }
+
+    /**
+     * A wrong verb or content type is the caller's mistake. Reporting either as
+     * a 500 both lies to the client and fills the error log with stack traces
+     * from anything that probes the API.
+     */
+    @Test
+    void wrongHttpMethodReturns405NotServerError() throws Exception {
+        mockMvc.perform(delete("/api/auth/login"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().exists("Allow"))
+                .andExpect(jsonPath("$.status").value(405));
+    }
+
+    @Test
+    void wrongContentTypeReturns415NotServerError() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("not json"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.status").value(415));
     }
 
     private String export(String token) throws Exception {
