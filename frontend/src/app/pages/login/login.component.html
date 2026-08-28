@@ -15,6 +15,13 @@
 
     <p class="error" role="alert" *ngIf="error">{{ error }}</p>
 
+    <!-- The demo API is on a free tier that sleeps. Saying so beats a spinner
+         that looks like the app is broken. -->
+    <p class="notice" role="status" *ngIf="slow">
+      Waking the demo server — it sleeps when idle and can take up to a minute.
+      This only happens on the first request.
+    </p>
+
     <button type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
     <p class="footer">No account? <a routerLink="/register">Create one</a></p>
     <p class="footer">

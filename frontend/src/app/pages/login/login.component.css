@@ -91,3 +91,13 @@ a {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.notice {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: #eef4f2;
+  color: #35505c;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
