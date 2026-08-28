@@ -137,6 +137,22 @@ resource "aws_cloudfront_distribution" "web" {
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
   }
 
+  # The SPA pings this on load to start waking the free-tier API while the
+  # visitor is still typing, so the login request does not pay the whole cold
+  # start. Exactly this path, not /actuator/*: the prometheus endpoint lives
+  # under the same prefix and has no business being public through the CDN.
+  ordered_cache_behavior {
+    path_pattern           = "/actuator/health"
+    target_origin_id       = "api"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+  }
+
   restrictions {
     geo_restriction {
       restriction_type = "none"
