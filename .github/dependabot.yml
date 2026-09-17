@@ -1,0 +1,43 @@
+# Nothing else watches these. Without it, a CVE in a transitive dependency is
+# only discovered by reading the news.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Spring Boot's modules move in lockstep; separate PRs for each would be
+      # noise that nobody merges.
+      spring:
+        patterns:
+          - "org.springframework*"
+          - "org.hibernate*"
+      test:
+        patterns:
+          - "org.testcontainers*"
+          - "org.junit*"
+          - "org.mockito*"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      angular:
+        patterns:
+          - "@angular*"
+          - "zone.js"
+          - "typescript"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

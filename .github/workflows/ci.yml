@@ -19,9 +19,11 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Run tests
+      # verify, not test: the JaCoCo coverage floor is bound to the verify
+      # phase, and `test` would stop one phase short of it.
+      - name: Test, package and check coverage
         working-directory: backend
-        run: ./mvnw -B test
+        run: ./mvnw -B verify
 
       - name: Upload coverage report
         if: always()
@@ -29,10 +31,6 @@ jobs:
         with:
           name: backend-jacoco
           path: backend/target/site/jacoco
-
-      - name: Package
-        working-directory: backend
-        run: ./mvnw -B -DskipTests package
 
       - name: Build Docker image
         working-directory: backend
@@ -56,6 +54,14 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Check formatting
+        working-directory: frontend
+        run: npm run format:check
 
       - name: Run tests
         working-directory: frontend
@@ -92,7 +98,7 @@ jobs:
           terraform validate
 
   a11y:
-    name: Browser tests (axe-core + Playwright)
+    name: Browser tests (axe-core in both themes + session flow)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

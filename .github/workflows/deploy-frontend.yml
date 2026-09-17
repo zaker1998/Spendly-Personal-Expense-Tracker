@@ -72,15 +72,18 @@ jobs:
           # Those bundles are content-hashed, so the bytes behind a given URL can
           # never change. A server-side metadata rewrite gives them a year without
           # re-uploading anything.
-          for ext in js css; do
+          # The fonts are bundled now too, and hashed the same way.
+          for ext in js css woff2 woff; do
             case $ext in
-              js) type='text/javascript' ;;
-              css) type='text/css' ;;
+              js) type='text/javascript; charset=utf-8' ;;
+              css) type='text/css; charset=utf-8' ;;
+              woff2) type='font/woff2' ;;
+              woff) type='font/woff' ;;
             esac
             aws s3 cp "s3://$BUCKET" "s3://$BUCKET" --recursive --no-progress \
               --exclude '*' --include "*.$ext" \
               --metadata-directive REPLACE \
-              --content-type "$type; charset=utf-8" \
+              --content-type "$type" \
               --cache-control 'public, max-age=31536000, immutable'
           done
 

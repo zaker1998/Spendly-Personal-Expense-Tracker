@@ -12,7 +12,10 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /actuator/health
+    # Readiness includes the database, so Render only routes to an instance
+    # that can actually answer; plain /actuator/health would pass while the
+    # Neon compute is still waking up.
+    healthCheckPath: /actuator/health/readiness
     envVars:
       - key: JWT_SECRET
         generateValue: true

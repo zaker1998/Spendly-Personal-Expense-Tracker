@@ -16,19 +16,22 @@ Personal expense tracker with Spring Boot + Angular.
 
 ## Features
 
-- Register / login (JWT), roles: `USER` and `ADMIN`
-- Expenses & categories CRUD
+- Register / login, roles: `USER` and `ADMIN`
+- **Sessions that can actually end** — a 15-minute access token plus a rotating refresh token in an `httpOnly` cookie; logout and password change revoke it server-side
+- **Per-account lockout** after repeated failed logins, on top of the per-IP rate limit
+- Expenses & categories CRUD, with **optimistic locking** — a stale edit gets a 409 instead of silently overwriting someone else's change
 - **AI category suggestion** — an LLM (with keyword-heuristic fallback) suggests the right category from the expense description
 - Filters + pagination on expense list
 - Monthly dashboard with month picker + category chart, **cached with Caffeine**
 - Budgets with progress / over-budget
 - CSV export (streamed, and neutralised against spreadsheet formula injection)
 - **Rate limiting** on auth + AI endpoints (per-IP fixed window, HTTP 429 + `Retry-After`)
-- Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s
-- **Accessible UI** — labelled controls, skip link, WCAG AA contrast; zero axe-core violations, checked in CI
+- Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s — each carrying the request id that is also in the logs and the `X-Request-Id` header
+- **Accessible UI** — labelled controls, skip link, WCAG AA contrast; zero axe-core violations in **both light and dark themes**, checked in CI
+- Dark theme that follows the OS setting
 - Admin UI (users + all expenses), paged
 - Swagger UI
-- Prometheus metrics at `/actuator/prometheus`, including cache hit/miss counters
+- Prometheus metrics at `/actuator/prometheus` (admin only), including cache hit/miss counters; liveness/readiness probes
 - Unit tests + integration tests against real PostgreSQL via Testcontainers
 - `docker compose` for local run
 
@@ -69,7 +72,7 @@ flowchart LR
 Longer write-ups of the trickier calls — including four bugs I found and fixed
 in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md).
 
-- **JWT (stateless) over sessions** — the API stays horizontally scalable and the SPA keeps a single token; short expiry + HTTPS mitigate token theft.
+- **Short JWT plus a revocable refresh token** — a signed JWT cannot be withdrawn, so its lifetime *is* the damage window if it leaks; it lasts 15 minutes. The session lives in a refresh token that is random, stored only as a SHA-256 hash, rotated on every use and sent as an `httpOnly`, `SameSite=Lax` cookie scoped to `/api/auth` — script in the page cannot read it, and a replayed copy is rejected. Logout and password change revoke it on the server. The SPA renews transparently: parallel 401s share one refresh, and the route guard renews before deciding the user is signed out.
 - **Flyway with `ddl-auto: validate`** — the schema is owned by versioned SQL migrations, never by Hibernate auto-DDL; production and tests run identical schemas.
 - **AI suggestions are validated server-side** — the LLM is asked to pick from the user's own category names, and its answer is checked against the database before being returned. A hallucinated category can never reach the client. On any provider failure (timeout, rate limit, missing key) the endpoint degrades to a keyword heuristic instead of erroring.
 - **Caffeine instead of Redis for caching** — the app runs as a single instance, so an in-process cache gives the same latency win without extra infrastructure. Writes evict exactly the affected user+month entry, not the whole cache; a 10-minute TTL bounds staleness.
@@ -78,7 +81,9 @@ in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md)
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
 - **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis. `X-Forwarded-For` is only trusted when the deployment declares a proxy in front (`RATE_LIMIT_BEHIND_PROXY`), because otherwise the header is client-supplied and rotating it would hand out an unlimited number of login attempts.
 - **Accessibility is measured, not asserted** — an axe-core suite runs against the real app in CI across every page and both admin tabs, so an unlabelled input or a contrast regression fails the build. It is a floor rather than a certificate: automated rules catch roughly a third of WCAG issues, and the app has not been tested with a screen reader. Details, including the two places where adding ARIA would have made things worse, are in the engineering notes.
-- **The CSV export streams** — it pages through the data 500 rows at a time and writes straight to the socket, deliberately without a surrounding transaction so a slow download cannot hold a pooled connection open. Chunked reads are sorted by `id`, because an unordered query is free to return a different order per `OFFSET` and rows would duplicate across chunk boundaries.
+- **The CSV export streams** — it reads 500 rows at a time and writes straight to the socket, deliberately without a surrounding transaction so a slow download cannot hold a pooled connection open. Chunks are fetched by seeking past the last `id` rather than by `OFFSET`: an offset walk re-reads everything before the offset on every chunk, and paging through `Page` added a `COUNT(*)` to each one.
+- **Optimistic locking with the version on the wire** — Hibernate's `@Version` only covers one transaction. Two tabs that each load and then save are two transactions, so the client also sends back the version it loaded and the API refuses a stale one with 409.
+- **Indexes follow the hot paths** — every authenticated request loads the user by email case-insensitively, so there is a `lower(email)` index for it; the description search uses a `pg_trgm` index, since `LIKE '%term%'` cannot use a btree.
 - **Static assets are served from a CDN, not from the API host** — the SPA used to be behind the same free-tier instance as the API, so a cold start meant a blank page for up to a minute. On CloudFront the app renders from an edge cache immediately and only the first data call pays the wake-up. `/api/*` is a second behaviour on the same distribution, so the browser sees one origin, there is no preflight in front of the login request, and the API host is not baked into the bundle. The whole thing is Terraform ([`infra/`](infra/)).
 - **Every list endpoint is paged** — including the admin views. An admin screen that returns every expense in the system is the one query whose cost grows without bound.
 
@@ -143,15 +148,25 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `RATE_LIMIT_ENABLED` | `true` | Kill switch |
-| `RATE_LIMIT_AUTH_PER_MINUTE` | `10` | Per IP, `/api/auth/**` |
+| `RATE_LIMIT_AUTH_PER_MINUTE` | `10` | Per IP, `/api/auth/**`. `docker compose` raises it to 100: behind its nginx every request shares one IP |
 | `RATE_LIMIT_AI_PER_MINUTE` | `30` | Per IP, AI suggestions |
 | `RATE_LIMIT_BEHIND_PROXY` | `false` | Read the client IP from `X-Forwarded-For`. Only enable where a proxy you control rewrites it |
+| `LOGIN_LOCKOUT_ENABLED` | `true` | Per-account lockout after failed logins |
+| `LOGIN_MAX_ATTEMPTS` | `8` | Failures before the account is locked |
+| `LOGIN_LOCKOUT_MINUTES` | `15` | How long the lock lasts |
 
 ### Other environment variables
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `JWT_SECRET` | dev value | Must be ≥ 32 bytes; the app refuses to start otherwise |
+| `JWT_EXPIRATION_MS` | `900000` | Access token lifetime (15 min) |
+| `JWT_ISSUER` | `spendly` | `iss` claim, required on every incoming token |
+| `REFRESH_EXPIRATION_MS` | `2592000000` | Refresh token lifetime (30 days) |
+| `REFRESH_COOKIE_SECURE` | `true` | `http://localhost` counts as secure, so this can stay on locally |
+| `REFRESH_COOKIE_SAME_SITE` | `Lax` | Enough for every setup here: `:4200 → :8080` is cross-origin but same-site |
+| `DB_POOL_MAX` / `DB_POOL_MIN_IDLE` | `8` / `2` | Hikari pool, sized for the free Neon tier |
+| `VIRTUAL_THREADS_ENABLED` | `true` | Java 21 virtual threads for request handling |
 | `SEED_DEMO_DATA` | `false` | Create the demo/admin accounts above |
 | `EXPORT_MAX_ROWS` | `50000` | Backstop on the streamed CSV export |
 | `DATABASE_URL` | — | `postgres://user:pass@host/db` style URL. Split into the `SPRING_DATASOURCE_*` vars by `docker/entrypoint.sh`; set them directly instead if you prefer |
@@ -293,7 +308,10 @@ Frontend expects the API at `http://localhost:8080/api` in dev.
 | Method | Path | Notes |
 |--------|------|--------|
 | POST | `/api/auth/register` | |
-| POST | `/api/auth/login` | |
+| POST | `/api/auth/login` | sets the refresh cookie; 429 while the account is locked |
+| POST | `/api/auth/refresh` | cookie → new access token; rotates the cookie |
+| POST | `/api/auth/logout` | revokes the refresh token |
+| POST | `/api/auth/change-password` | signed in; ends every other session |
 | GET/POST/PUT/DELETE | `/api/categories` | |
 | GET/POST/PUT/DELETE | `/api/expenses` | query params for filters |
 | POST | `/api/expenses/suggest-category` | AI / heuristic category suggestion |
@@ -303,20 +321,25 @@ Frontend expects the API at `http://localhost:8080/api` in dev.
 | GET | `/api/admin/users` | ADMIN, paged |
 | GET | `/api/admin/expenses` | ADMIN, paged |
 
-Everything returning a collection of unknown size is paged (`page`, `size`, `sort`).
+Everything returning a collection of unknown size is paged (`page`, `size`, `sort`). `size` is capped at 100, and `sort` only accepts the fields each endpoint lists — anything else is a 400 that names the field.
 
 ## Tests
 
 ```bash
-cd backend && ./mvnw test        # 48 tests, JaCoCo report in target/site/jacoco
-cd frontend && npm run test:ci   # 24 tests, headless Chrome + coverage
+cd backend && ./mvnw verify      # 84 tests + a JaCoCo coverage floor (80% lines, 55% branches)
+cd frontend && npm run test:ci   # 83 tests, headless Chrome + coverage
+cd frontend && npm run lint      # angular-eslint, incl. OnPush and control-flow rules
+cd frontend && npm run format:check
 
 docker compose up -d --build     # the browser suite drives the real app
-cd frontend && npm run test:e2e  # 9 tests, Playwright + axe-core
+cd frontend && npm run test:e2e  # 22 tests, Playwright + axe-core, light and dark
 ```
 
-All three run on every push (`.github/workflows/ci.yml`), along with
-`terraform fmt`/`validate` for `infra/`.
+All of it runs on every push (`.github/workflows/ci.yml`), along with
+`terraform fmt`/`validate` for `infra/`. `.github/workflows/security.yml` adds
+CodeQL for Java and TypeScript, `npm audit` and a Trivy scan of the deployed
+image, weekly as well as on push; Dependabot watches Maven, npm, Actions and the
+base images.
 
 **Backend** — unit tests (Mockito) cover the services, the AI suggestion fallback
 logic, the rate limiter and the JWT secret guard. Integration tests
@@ -324,20 +347,33 @@ logic, the rate limiter and the JWT secret guard. Integration tests
 PostgreSQL: 401 for anonymous requests, 403 when a regular user reaches an admin
 endpoint, 400 (not 500) for invalid query params, cross-user isolation (user B
 cannot read user A's expense), the summary cache returning fresh totals straight
-after a write, and a client-supplied currency being ignored. All classes share
-one container via `AbstractIntegrationTest`.
+after a write, and a client-supplied currency being ignored. Beyond that:
+ownership is checked on **every** endpoint that takes an id, not just expenses;
+the session lifecycle (httpOnly cookie, rotation, replay rejected, logout and
+password change revoking server-side); the per-account lockout; the perimeter
+(metrics closed, probes open, unknown `/api` paths answering JSON 404, security
+headers); validation bounds; optimistic locking; and a category rename
+refreshing the cached summary. All classes share one Postgres container that is
+started once for the JVM — see the comment in `AbstractIntegrationTest` for why
+`@Container` on a shared base class breaks cached Spring contexts.
 
-**Frontend** — the core layer is specced: session persistence and restore,
-the interceptor's token attachment and 401-logout rule (and the login request it
-must *not* log out), the three route guards, and API parameter building.
+**Frontend** — every page is specced against `HttpTestingController`: create
+versus update (and the version sent back), deleting the last row stepping back a
+page, stale requests being cancelled when a newer one starts, errors reaching the
+notification area. The core layer covers session restore and expiry, the
+interceptor's refresh-and-replay (one refresh for many 401s, no recursion on the
+refresh call itself), the async guards and the error formatter.
 
-**Browser** — one Playwright suite against the stack `docker compose` brings up.
+**Browser** — Playwright against the stack `docker compose` brings up. A
+session suite checks what only a real browser can: that the refresh cookie is
+`httpOnly`, that a lost access token is renewed on reload, and that a copy of
+the cookie is dead after logout.
 Besides accessibility it pins the browser to `Europe/Vienna` and asserts the
 expense list renders the dates the API actually returned: `spentOn` is a
 `LocalDate`, and formatting it in a fixed timezone shifted every date a day
 earlier for anyone east of UTC while looking correct on a UTC CI runner.
 
-**Accessibility** — axe-core runs over every page and both admin tabs against the
+**Accessibility** — axe-core runs over every page and both admin tabs, once per theme, against the
 stack that `docker compose` brings up, failing on any WCAG 2.1 A/AA violation. It
 also asserts the two things a rules engine can't infer: that the skip link is the
 first tab stop and actually moves focus into `<main>`, and that every form control
@@ -345,7 +381,7 @@ on the busiest page has an accessible name. This took the app from 24 automated
 violations to 0 — see [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md) for
 what that number does and doesn't mean.
 
-Line coverage is ~80% on the backend and ~70% on the frontend core.
+Line coverage is ~85% on the backend and ~88% on the frontend.
 
 ## License
 
