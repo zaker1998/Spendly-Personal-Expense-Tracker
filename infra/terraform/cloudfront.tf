@@ -56,15 +56,15 @@ resource "aws_cloudfront_response_headers_policy" "security" {
 
     # script-src has no 'unsafe-inline', which is the directive that actually
     # matters. Keeping it that way needed a build change -- see section 8 of
-    # docs/ENGINEERING_NOTES.md. style-src still needs it: the
-    # build inlines the Google Fonts @font-face rules into a <style> block, and
-    # the font files themselves are fetched from gstatic.
+    # docs/ENGINEERING_NOTES.md. style-src still needs it: Angular adds each
+    # component's styles to the page as a <style> element at runtime. The fonts
+    # are bundled with the app now, so neither Google host is allowed any more.
     content_security_policy {
       content_security_policy = join("; ", [
         "default-src 'self'",
         "script-src 'self'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' data: https://fonts.gstatic.com",
+        "style-src 'self' 'unsafe-inline'",
+        "font-src 'self' data:",
         "img-src 'self' data:",
         "connect-src 'self'",
         "object-src 'none'",
