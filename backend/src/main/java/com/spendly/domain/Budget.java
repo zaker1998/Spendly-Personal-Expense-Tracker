@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -21,6 +22,15 @@ public class Budget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Optimistic lock. Hibernate compares it on every UPDATE, so a write that
+     * started from a stale copy of the row fails instead of overwriting the
+     * change it never saw.
+     */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -57,6 +67,10 @@ public class Budget {
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now();
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public Long getId() {
