@@ -1,0 +1,28 @@
+# Overrides for the test profile only.
+#
+# This used to be application.yml, which meant it *replaced* the main
+# configuration rather than layering on top of it: target/test-classes comes
+# first on the classpath, so only one of the two files was ever read. Every
+# property added to the real configuration was therefore absent under test, and
+# the first one that had no @Value default broke every integration test at once.
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+spendly:
+  jwt:
+    secret: test-secret-key-at-least-32-characters-long!!
+    expiration-ms: 3600000
+  cors:
+    allowed-origins: http://localhost:4200
+  refresh:
+    # MockMvc does not run over TLS, and a Secure cookie would not be echoed back.
+    cookie-secure: false
+  # Both limiters keep state in memory for the life of the context, which is
+  # cached and shared across test classes. Left on, one class's auth calls would
+  # exhaust the budget for the next one. The tests that exist to prove these
+  # limits work turn them back on with @TestPropertySource.
+  login-protection:
+    enabled: false
+  rate-limit:
+    enabled: false

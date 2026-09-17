@@ -1,29 +1,14 @@
 package com.spendly;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
-class SpendlyApplicationTests {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18-alpine")
-            .withDatabaseName("spendly")
-            .withUsername("spendly")
-            .withPassword("spendly");
-
-    @DynamicPropertySource
-    static void datasourceProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
+/**
+ * Extends the shared base rather than declaring a second container: as its own
+ * {@code @SpringBootTest} with its own {@code @Container} it started a separate
+ * Postgres and built a separate application context on every run, for one
+ * assertion that the context can be built at all.
+ */
+class SpendlyApplicationTests extends AbstractIntegrationTest {
 
     @Test
     void contextLoads() {

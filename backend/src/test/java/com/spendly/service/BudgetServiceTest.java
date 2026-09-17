@@ -61,7 +61,7 @@ class BudgetServiceTest {
 
         var response = budgetService.create(
                 1L,
-                new BudgetRequest(null, new BigDecimal("1000.00"), today.getYear(), today.getMonthValue())
+                new BudgetRequest(null, new BigDecimal("1000.00"), today.getYear(), today.getMonthValue(), null)
         );
 
         assertThat(response.id()).isEqualTo(5L);

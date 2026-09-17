@@ -1,7 +1,8 @@
 package com.spendly.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.times;
@@ -21,11 +22,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class ExpenseExportServiceTest {
@@ -37,7 +33,7 @@ class ExpenseExportServiceTest {
         return new ExpenseResponse(
                 id, 7L, category, "#abcdef",
                 new BigDecimal("12.50"), "EUR",
-                LocalDate.of(2026, 3, 14), description,
+                LocalDate.of(2026, 3, 14), description, 0L,
                 Instant.EPOCH, Instant.EPOCH);
     }
 
@@ -47,14 +43,15 @@ class ExpenseExportServiceTest {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    private void stubSinglePage(List<ExpenseResponse> rows) {
-        when(expenseService.list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
-                .thenReturn(new PageImpl<>(rows, PageRequest.of(0, 500), rows.size()));
+    private void stubSingleChunk(List<ExpenseResponse> rows) {
+        when(expenseService.listAfterId(eq(1L), anyLong(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(rows);
     }
 
     @Test
     void writesHeaderAndRows() throws Exception {
-        stubSinglePage(List.of(expense(1, "Food", "Lunch")));
+        stubSingleChunk(List.of(expense(1, "Food", "Lunch")));
 
         assertThat(export(new ExpenseExportService(expenseService, 50_000)))
                 .isEqualTo("""
@@ -65,7 +62,7 @@ class ExpenseExportServiceTest {
 
     @Test
     void quotesFieldsContainingSeparators() throws Exception {
-        stubSinglePage(List.of(expense(1, "Food", "Dinner, drinks and a \"tip\"")));
+        stubSingleChunk(List.of(expense(1, "Food", "Dinner, drinks and a \"tip\"")));
 
         assertThat(export(new ExpenseExportService(expenseService, 50_000)))
                 .contains("\"Dinner, drinks and a \"\"tip\"\"\"");
@@ -83,7 +80,7 @@ class ExpenseExportServiceTest {
                 expense(3, "Food", "-1+1"),
                 expense(4, "Food", "@SUM(A1)"),
                 expense(5, "Food", "\tleading tab"));
-        stubSinglePage(rows);
+        stubSingleChunk(rows);
 
         String csv = export(new ExpenseExportService(expenseService, 50_000));
 
@@ -95,7 +92,7 @@ class ExpenseExportServiceTest {
 
     @Test
     void leavesOrdinaryTextAlone() throws Exception {
-        stubSinglePage(List.of(expense(1, "Food", "Weekly groceries")));
+        stubSingleChunk(List.of(expense(1, "Food", "Weekly groceries")));
 
         assertThat(export(new ExpenseExportService(expenseService, 50_000)))
                 .contains(",Weekly groceries")
@@ -104,59 +101,75 @@ class ExpenseExportServiceTest {
 
     @Test
     void rendersNullDescriptionAsEmptyField() throws Exception {
-        stubSinglePage(List.of(expense(1, "Food", null)));
+        stubSingleChunk(List.of(expense(1, "Food", null)));
 
         assertThat(export(new ExpenseExportService(expenseService, 50_000)))
                 .endsWith("1,2026-03-14,Food,12.50,EUR,\n");
     }
 
-    /** Reading in chunks is only safe if the order is total; id provides that. */
+    /**
+     * Chunks are read by seeking past the last id, not by OFFSET. An OFFSET walk
+     * makes the database re-scan and discard everything before the offset on
+     * every chunk, and the count that came with it ran the whole filter again.
+     */
     @Test
-    void requestsAStableSortForEveryChunk() throws Exception {
-        stubSinglePage(List.of(expense(1, "Food", "Lunch")));
+    void seeksPastTheLastIdOfThePreviousChunk() throws Exception {
+        List<ExpenseResponse> first = fullChunk(0);
+        when(expenseService.listAfterId(eq(1L), anyLong(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(first, List.of(expense(500, "Food", "Last")));
 
         export(new ExpenseExportService(expenseService, 50_000));
 
-        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(expenseService).list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
-                pageable.capture());
-        assertThat(pageable.getValue().getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "id"));
+        ArgumentCaptor<Long> afterId = ArgumentCaptor.forClass(Long.class);
+        verify(expenseService, times(2)).listAfterId(eq(1L), afterId.capture(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
+        // First chunk starts from the beginning, the second resumes at the last
+        // id written rather than at an offset of 500.
+        assertThat(afterId.getAllValues()).containsExactly(0L, 499L);
     }
 
     @Test
-    void keepsPagingUntilTheLastChunk() throws Exception {
-        List<ExpenseResponse> first = new ArrayList<>();
-        for (int i = 0; i < 500; i++) {
-            first.add(expense(i, "Food", "Row " + i));
-        }
-        Page<ExpenseResponse> page0 = new PageImpl<>(first, PageRequest.of(0, 500), 501);
-        Page<ExpenseResponse> page1 =
-                new PageImpl<>(List.of(expense(500, "Food", "Last")), PageRequest.of(1, 500), 501);
-
-        when(expenseService.list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
-                .thenReturn(page0, page1);
+    void keepsReadingUntilAChunkComesBackShort() throws Exception {
+        when(expenseService.listAfterId(eq(1L), anyLong(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(fullChunk(0), List.of(expense(500, "Food", "Last")));
 
         String csv = export(new ExpenseExportService(expenseService, 50_000));
 
-        verify(expenseService, times(2))
-                .list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+        verify(expenseService, times(2)).listAfterId(eq(1L), anyLong(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
         assertThat(csv.lines()).hasSize(502); // header + 501 rows
         assertThat(csv).endsWith("500,2026-03-14,Food,12.50,EUR,Last\n");
     }
 
+    /** An empty chunk ends the export without a further query. */
+    @Test
+    void stopsOnAnEmptyChunk() throws Exception {
+        stubSingleChunk(List.of());
+
+        assertThat(export(new ExpenseExportService(expenseService, 50_000)))
+                .isEqualTo("id,spentOn,category,amount,currency,description\n");
+    }
+
     @Test
     void stopsAtTheConfiguredRowCap() throws Exception {
-        List<ExpenseResponse> rows = new ArrayList<>();
-        for (int i = 0; i < 500; i++) {
-            rows.add(expense(i, "Food", "Row " + i));
-        }
-        when(expenseService.list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
-                .thenReturn(new PageImpl<>(rows, PageRequest.of(0, 500), 10_000));
+        // Deliberately more rows than the cap: the cap must hold even if the
+        // query ignores the limit it was given.
+        stubSingleChunk(fullChunk(0));
 
         String csv = export(new ExpenseExportService(expenseService, 3));
 
         assertThat(csv.lines()).hasSize(4); // header + 3 rows
-        verify(expenseService, times(1))
-                .list(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+        verify(expenseService, times(1)).listAfterId(eq(1L), anyLong(), anyInt(),
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
+    }
+
+    private static List<ExpenseResponse> fullChunk(int firstId) {
+        List<ExpenseResponse> rows = new ArrayList<>();
+        for (int i = 0; i < 500; i++) {
+            rows.add(expense(firstId + i, "Food", "Row " + i));
+        }
+        return rows;
     }
 }

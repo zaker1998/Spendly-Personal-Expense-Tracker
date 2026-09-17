@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class CategoryServiceTest {
@@ -29,6 +30,9 @@ class CategoryServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ApplicationEventPublisher events;
 
     @InjectMocks
     private CategoryService categoryService;
@@ -48,7 +52,7 @@ class CategoryServiceTest {
             return c;
         });
 
-        var response = categoryService.create(1L, new CategoryRequest("Groceries", "#111111"));
+        var response = categoryService.create(1L, new CategoryRequest("Groceries", "#111111", null));
 
         assertThat(response.id()).isEqualTo(10L);
         assertThat(response.name()).isEqualTo("Groceries");
@@ -62,7 +66,7 @@ class CategoryServiceTest {
     void createRejectsDuplicateName() {
         when(categoryRepository.existsByUserIdAndNameIgnoreCase(1L, "Food")).thenReturn(true);
 
-        assertThatThrownBy(() -> categoryService.create(1L, new CategoryRequest("Food", null)))
+        assertThatThrownBy(() -> categoryService.create(1L, new CategoryRequest("Food", null, null)))
                 .isInstanceOf(ConflictException.class);
     }
 }
