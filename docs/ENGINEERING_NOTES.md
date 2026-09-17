@@ -457,10 +457,94 @@ UTC. Same root cause from the opposite direction — a date treated as an instan
 
 ---
 
+## 12. The metrics endpoint was public
+
+**What was wrong.** `management.endpoints.web.exposure.include` listed
+`prometheus`, and the security rules named only `/actuator/health` and
+`/actuator/info` as public. Everything else fell through to the last rule,
+`anyRequest().permitAll()` — which exists for the SPA's static files. So
+`/actuator/prometheus` answered anyone: every HTTP path the API serves, pool
+sizes, cache statistics, JVM details. The CloudFront behaviour only forwards
+`/actuator/health`, which hid this on the CDN, but not on the Render URL itself.
+
+**The fix.** `/actuator/health/**` and `/actuator/info` stay open (Render's
+readiness check needs them), `/actuator/**` requires `ADMIN`, and a test asserts
+both an anonymous and a non-admin caller are refused.
+
+**Lesson.** A catch-all `permitAll` makes every new endpoint public by default.
+The order of the rules is the policy; the last one deserves the most suspicion.
+
+---
+
+## 13. Every authenticated request scanned the users table
+
+**What was wrong.** The JWT filter loads the user on every request, through
+`findByEmailIgnoreCase`. Spring Data turns that into
+`where upper(email) = upper(?)`, and the unique index on `email` is a plain
+btree on the column — it cannot answer a query on `upper(email)`. So the lookup
+that runs before every single API call was a sequential scan, and login did it
+twice (it discarded the principal `authenticate()` had already loaded and looked
+the user up again).
+
+**The fix.** Explicit JPQL on `LOWER(u.email)`, a matching `lower(email)`
+index in V4, and login reuses the principal. Nothing about it shows up with a
+dozen users, which is exactly why it was worth finding before it mattered.
+
+---
+
+## 14. The export was quadratic
+
+**What was wrong.** Section 9 fixed the export's ordering, but it still walked
+the result with `OFFSET` pages of 500 up to the 50 000 cap. Each chunk makes the
+database read and throw away every row before the offset, so the total work grows
+with the square of the export. And because the chunks were requested as a
+`Page`, every one of up to 100 queries came with a `COUNT(*)` over the whole
+filter.
+
+**The fix.** Keyset pagination: `WHERE id > :lastId ORDER BY id LIMIT 500`,
+through a `Limit` parameter and a plain `List`, so there is no count. Each chunk
+is one index range scan. The row cap is enforced in the writer as well as in the
+query, so it holds even if a query ever ignores its limit.
+
+---
+
+## 15. Three bugs the new tests found in the fixes themselves
+
+**The test configuration replaced the real one.** `src/test/resources/application.yml`
+has the same name as the main file, and `target/test-classes` is first on the
+classpath — so only the test file was ever read. The integration tests never ran
+against the real configuration, and the first new property without a `@Value`
+default (the CSP) broke every one of them at once. It is `application-test.yml`
+under a `test` profile now, layered on top of the real file.
+
+**A shared `@Container` broke cached contexts.** `@Container` on a static field
+stops the container after *each* test class that inherits it and starts a new
+one — on a new random port — for the next. Spring caches application contexts
+across classes, so the second class reused a context pointing at a dead port, and
+every request failed after exactly ten seconds: Hikari's connection timeout. It
+only surfaced once two classes shared a context. The container is now started
+once in a static initialiser and left to Testcontainers' reaper, which is also
+faster.
+
+**The version in the response was stale.** Hibernate increments `@Version` when
+it flushes, and the update method built its response before that. The client got
+back the version it had sent, so its *next* save was rejected as a conflict. An
+explicit `flush()` before building the response fixed it; the test that caught
+it edits the same row twice.
+
+**One from the browser suite, too.** After switching `HttpClient` to the fetch
+backend, the timezone test failed about one run in five with "No data found for
+resource": `waitForResponse` reads the body back out of the browser, and for a
+response the page consumed through `fetch()` the browser does not always still
+have it. The test now reads the body in a route handler, before the browser sees
+it — 15 out of 15 since.
+
+---
+
 ## Testing
 
-Backend went 20 → 48 tests, frontend 1 → 24, plus 9 browser tests (8 accessibility,
-1 timezone regression).
+Backend went 20 → 48 → 84 tests, frontend 1 → 24 → 83, browser 9 → 22.
+
 
 The frontend was the real gap: the only spec was the Angular CLI's generated
 "should create the app", and CI never ran `npm test` at all — it only built. So
@@ -469,19 +553,26 @@ session persistence and restore, the interceptor's token attachment and its
 401-logout rule (including the login 401 it must *not* act on), all three route
 guards, and API query-parameter construction.
 
-`AbstractIntegrationTest` holds the Postgres container as a `static` field so
-every integration class shares one database instead of starting its own.
+The second round closed the remaining gap: every page component is specced,
+ownership is tested on every endpoint that takes an id (there is no central
+enforcement, so a forgotten `userId` would otherwise go unnoticed), and the
+accessibility suite runs once per theme.
 
-Line coverage: ~80% backend (JaCoCo), ~70% frontend core (karma-coverage).
-Not chasing a number — the untested remainder is mostly getters and DTOs.
+`AbstractIntegrationTest` starts one Postgres for the whole JVM; section 15 has
+the reason it is not a `@Container`.
+
+Line coverage: ~85% backend (JaCoCo), ~88% frontend (karma-coverage). `mvn verify`
+fails below 80% lines / 55% branches — set just under today's numbers, to hold a
+floor rather than chase a target.
 
 ### What isn't tested, and why
 
 - The Groq call itself is never hit in tests; `AiCategoryClient` is an interface
   and the tests stub it. Testing that the real HTTP call works belongs in a
   contract test against a recorded response, not in a unit suite.
-- The Playwright suite covers accessibility and date rendering. The functional
-  happy paths are still checked at the MockMvc level, not through a browser.
+- The Playwright suite covers accessibility, date rendering and the session
+  cookie. The functional happy paths are still checked at the MockMvc and
+  component level, not through a browser.
 - The cache race in section 2 is not reproduced by a test — a reliable
   concurrency test needs two threads and a latch inside the transaction boundary,
   and I judged the after-commit listener plus a functional
@@ -502,26 +593,42 @@ in that statistic; an explicit `cache.evict()` is an `invalidate()` and isn't
 counted. The functional check is the summary returning fresh totals after a
 write, not the eviction counter.
 
+Every request now gets an id (`X-Request-Id`, taken from the caller if it
+looks sane, generated otherwise). It is in every log line through the MDC, in the
+response header and in the error body, so a screenshot of an error leads to the
+log line that explains it. The catch-all handler also logs the method and path it
+used to leave out.
+
+Health is split into liveness and readiness; readiness includes the database, so
+a proxy only routes to an instance that can actually answer.
+
 ---
 
 ## Known limitations
 
 Things I'd raise before someone else does:
 
-- **JWT lives in `localStorage`**, is valid 24h, and there's no refresh or
-  revocation. Any XSS means token theft, and logout is client-side only. The
-  proper design is a short access token plus a refresh token in an HttpOnly
-  cookie with server-side revocation. I've built that pattern (Redis-backed
-  rotating refresh tokens) in my Recovery Sports Therapy project; here it was
-  scoped out and the token expiry kept short-ish instead.
-- **Rate limiting is per-instance.** Two instances means double the effective
-  limit. Correct for one Render instance, wrong the moment it scales — that's the
-  same reasoning as choosing Caffeine over Redis, and both change together.
+- **The access token still lives in `localStorage`.** It now lasts 15 minutes
+  and the session itself is an `httpOnly` refresh cookie that can be revoked, so
+  an XSS gets a short-lived token and no way to renew it — but it does get one.
+  Moving the access token into memory only would close that, at the cost of a
+  refresh on every page load.
+- **Horizontal scaling needs Redis, in three places at once.** The per-IP rate
+  limit, the per-account login lockout and the summary cache all keep state in
+  process memory. With two instances each limit is effectively doubled and a
+  cache eviction on one instance never reaches the other. That is the right call
+  for one Render instance and the wrong one the moment it scales; all three move
+  together.
+- **Ownership is enforced by convention.** Every service method takes the user id
+  and every query repeats the predicate; the ownership tests are what catch a
+  forgotten one. A Hibernate filter on `user_id` would make forgetting
+  impossible, and is the next step if the entity count grows.
+- **No password reset, email verification or account deletion.** Each needs an
+  email provider, which this deployment does not have. Changing the password
+  while signed in works, and ends every other session.
 - **The filter query uses boolean flag parameters** rather than JPA
   Specifications or Querydsl. It's explicit and the generated SQL is predictable,
   but it doesn't scale past a handful of filters.
-- **No optimistic locking.** Two concurrent edits of the same expense: last write
-  wins. A `@Version` column is the fix if concurrent editing ever matters.
 - **No custom domain on the CDN**, so the app is on a `*.cloudfront.net` URL and
   uses the default certificate. A real domain means an ACM certificate in
   `us-east-1` (CloudFront only reads certificates from there) plus DNS

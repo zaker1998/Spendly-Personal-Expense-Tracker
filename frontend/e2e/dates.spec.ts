@@ -21,7 +21,7 @@ async function signIn(page: Page) {
   await page.fill('input[formcontrolname="password"]', DEMO.password);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.includes('/login')),
-    page.click('button[type="submit"]'),
+    page.click('button[type="submit"]')
   ]);
   await page.waitForLoadState('networkidle');
 }
@@ -29,25 +29,60 @@ async function signIn(page: Page) {
 /** "2026-08-27" -> "Aug 27, 2026", matching Angular's 'mediumDate'. */
 function expectedLabel(isoDate: string): string {
   const [year, month, day] = isoDate.split('-').map(Number);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
   return `${months[month - 1]} ${day}, ${year}`;
 }
 
-test('the expense list shows the date the API stored, not one shifted by a timezone', async ({ page }) => {
+test('the expense list shows the date the API stored, not one shifted by a timezone', async ({
+  page
+}) => {
   await signIn(page);
 
   // Read the payload the app itself fetches — no token juggling, and it compares
   // exactly what was rendered against exactly what produced it.
-  const [response] = await Promise.all([
-    page.waitForResponse((r) => r.url().includes('/api/expenses?') && r.ok()),
-    page.goto('/expenses'),
-  ]);
+  //
+  // Taken from a route handler rather than waitForResponse: that reads the body
+  // back out of the browser over DevTools, and for responses the app consumes
+  // through fetch() the browser does not always still have it — the test failed
+  // about one run in five with "No data found for resource". Here the body is
+  // read before the browser ever sees it.
+  //
+  // Only the list this page renders (ten rows) counts; the dashboard the sign-in
+  // lands on also asks for expenses, five of them.
+  let body: { content: { spentOn: string }[] } | undefined;
+  await page.route(
+    (url) => url.pathname.endsWith('/api/expenses'),
+    async (route) => {
+      const response = await route.fetch();
+      if (new URL(route.request().url()).searchParams.get('size') === '10') {
+        body = await response.json();
+      }
+      await route.fulfill({ response });
+    }
+  );
 
-  const body = await response.json();
-  const rendered = (await page.locator('tbody tr td:first-child').allInnerTexts()).map((t) => t.trim());
+  await page.goto('/expenses');
+  await expect(page.locator('tbody tr').first()).toBeVisible();
+  expect(body, 'the expenses page request').toBeDefined();
+  const rendered = (await page.locator('tbody tr td:first-child').allInnerTexts()).map((t) =>
+    t.trim()
+  );
 
   expect(rendered.length).toBeGreaterThan(0);
   expect(rendered).toEqual(
-    body.content.slice(0, rendered.length).map((e: { spentOn: string }) => expectedLabel(e.spentOn))
+    body!.content.slice(0, rendered.length).map((e) => expectedLabel(e.spentOn))
   );
 });

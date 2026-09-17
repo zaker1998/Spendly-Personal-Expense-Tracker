@@ -22,7 +22,7 @@ async function signIn(page: Page, user: { email: string; password: string }) {
   await page.fill('input[formcontrolname="password"]', user.password);
   await Promise.all([
     page.waitForURL((url) => !url.pathname.includes('/login')),
-    page.click('button[type="submit"]'),
+    page.click('button[type="submit"]')
   ]);
   await page.waitForLoadState('networkidle');
 }
@@ -34,11 +34,15 @@ async function violations(page: Page) {
   // CloudFront deployment without weakening the policy for the test.
   await page.evaluate(AXE_SOURCE);
   const result = await page.evaluate(
-    async (tags) => (await (window as any).axe.run(document, { runOnly: { type: 'tag', values: tags } })).violations,
+    async (tags) =>
+      (await (window as any).axe.run(document, { runOnly: { type: 'tag', values: tags } }))
+        .violations,
     WCAG
   );
   // Fail with the rule and the element, not just a count.
-  return (result as any[]).flatMap((v) => v.nodes.map((n: any) => `${v.id} [${v.impact}] ${n.target.join(' ')}`));
+  return (result as any[]).flatMap((v) =>
+    v.nodes.map((n: any) => `${v.id} [${v.impact}] ${n.target.join(' ')}`)
+  );
 }
 
 test.describe('accessibility', () => {
@@ -47,7 +51,7 @@ test.describe('accessibility', () => {
     expect(await violations(page)).toEqual([]);
   });
 
-  for (const path of ['/', '/expenses', '/categories', '/budgets']) {
+  for (const path of ['/', '/expenses', '/categories', '/budgets', '/account']) {
     test(`${path} has no automatically detectable violations`, async ({ page }) => {
       await signIn(page, DEMO);
       await page.goto(path);

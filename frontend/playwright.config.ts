@@ -15,7 +15,16 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:4200',
-    trace: 'retain-on-failure',
+    trace: 'retain-on-failure'
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // The dark theme has its own palette, so its contrast gets its own axe pass.
+    // Only the accessibility suite is theme-dependent; the rest runs once.
+    {
+      name: 'chromium-dark',
+      testMatch: /a11y\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], colorScheme: 'dark' }
+    }
+  ]
 });
