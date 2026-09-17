@@ -95,6 +95,7 @@ public class BudgetService {
     public BudgetResponse update(Long userId, Long budgetId, BudgetRequest request) {
         Budget budget = budgetRepository.findByIdAndUserId(budgetId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Budget not found"));
+        ExpenseService.requireCurrentVersion(budget.getVersion(), request.version());
 
         Long categoryId = request.categoryId();
         if (budgetRepository.existsForPeriod(userId, request.year(), request.month(), categoryId, budgetId)) {
@@ -109,6 +110,7 @@ public class BudgetService {
         } else {
             budget.setCategory(null);
         }
+        budgetRepository.flush();
         return toResponse(userId, budget);
     }
 
@@ -154,7 +156,8 @@ public class BudgetService {
                 over,
                 budget.getYear(),
                 budget.getMonth(),
-                AppCurrency.CODE
+                AppCurrency.CODE,
+                budget.getVersion()
         );
     }
 }

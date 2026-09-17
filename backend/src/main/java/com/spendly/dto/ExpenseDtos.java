@@ -1,6 +1,8 @@
 package com.spendly.dto;
 
+import com.spendly.validation.SupportedDate;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,12 +15,24 @@ public final class ExpenseDtos {
     private ExpenseDtos() {
     }
 
-    /** No currency field: see {@link com.spendly.domain.AppCurrency}. */
+    /**
+     * No currency field: see {@link com.spendly.domain.AppCurrency}.
+     *
+     * <p>{@code version} is the value from the last read of this expense. Send it
+     * to have a concurrent edit rejected with 409 instead of silently
+     * overwritten; omit it to skip the check.
+     *
+     * <p>The bounds on {@code amount} are what the column can hold:
+     * {@code NUMERIC(19,2)}. Without them an oversized figure reached the
+     * database and came back as "Conflicts with existing data" (409), and a third
+     * decimal place was rounded away without anyone being told.
+     */
     public record ExpenseRequest(
             @NotNull Long categoryId,
-            @NotNull @DecimalMin(value = "0.01") BigDecimal amount,
-            @NotNull LocalDate spentOn,
-            @Size(max = 500) String description
+            @NotNull @DecimalMin("0.01") @Digits(integer = 15, fraction = 2) BigDecimal amount,
+            @NotNull @SupportedDate LocalDate spentOn,
+            @Size(max = 500) String description,
+            Long version
     ) {
     }
 
@@ -31,6 +45,7 @@ public final class ExpenseDtos {
             String currency,
             LocalDate spentOn,
             String description,
+            Long version,
             Instant createdAt,
             Instant updatedAt
     ) {

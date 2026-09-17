@@ -5,6 +5,16 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/spendly}
     username: ${SPRING_DATASOURCE_USERNAME:spendly}
     password: ${SPRING_DATASOURCE_PASSWORD:spendly}
+    hikari:
+      # Sized for the free Neon tier, which allows far fewer connections than
+      # Hikari's default pool of 10 per instance would claim under load.
+      maximum-pool-size: ${DB_POOL_MAX:8}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: 10000
+      # Below Neon's idle timeout, so the pool retires connections before the
+      # server does and no request ever picks up a dead one.
+      idle-timeout: 240000
+      max-lifetime: 900000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -13,12 +23,35 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+          # The demo seeder writes several hundred rows at boot; without these
+          # that is one INSERT per row.
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
   flyway:
     enabled: true
     locations: classpath:db/migration
+  data:
+    web:
+      pageable:
+        # Spring's own default is 2000, which makes ?size=2000 a cheap way to
+        # pull a very large joined result set out of the admin endpoints.
+        max-page-size: 100
+        default-page-size: 20
+  threads:
+    virtual:
+      # The request path is blocking end to end (JDBC, and a synchronous call to
+      # the LLM provider), which is exactly the shape virtual threads help.
+      enabled: ${VIRTUAL_THREADS_ENABLED:true}
 
 server:
   port: 8080
+  shutdown: graceful
+  error:
+    # The SPA and the API both return structured errors from the application;
+    # nothing should leak a stack trace or a servlet error page.
+    include-stacktrace: never
+    include-message: never
 
 spendly:
   ai:
@@ -35,7 +68,43 @@ spendly:
     timeout-ms: ${AI_TIMEOUT_MS:5000}
   jwt:
     secret: ${JWT_SECRET:spendly-dev-secret-key-change-me-in-production-32chars-min}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    # Fifteen minutes. The token cannot be revoked once issued, so its lifetime
+    # is the window an attacker gets from a stolen one; the refresh token below
+    # is what keeps the user signed in, and that one can be revoked.
+    expiration-ms: ${JWT_EXPIRATION_MS:900000}
+    issuer: ${JWT_ISSUER:spendly}
+  refresh:
+    # Thirty days, rotated on every use.
+    expiration-ms: ${REFRESH_EXPIRATION_MS:2592000000}
+    cookie-name: spendly_refresh
+    # Lax is enough everywhere this app runs, and it is the stricter choice.
+    # CloudFront proxies /api under the SPA's own hostname, the packaged image
+    # serves both from one origin, and `ng serve` on :4200 calling :8080 is
+    # cross-origin but still same-site — SameSite ignores the port. Lax also
+    # keeps a third-party page from firing /logout with the user's cookie.
+    # http://localhost counts as a secure context, so Secure works locally too.
+    cookie-secure: ${REFRESH_COOKIE_SECURE:true}
+    cookie-same-site: ${REFRESH_COOKIE_SAME_SITE:Lax}
+  security:
+    # Applies to responses this application serves: the packaged SPA, swagger-ui
+    # and the API itself. nginx sets an equivalent policy when it serves the SPA.
+    content-security-policy: >-
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      font-src 'self';
+      img-src 'self' data:;
+      connect-src 'self';
+      frame-ancestors 'none';
+      base-uri 'self';
+      form-action 'self';
+      object-src 'none'
+  login-protection:
+    # Per-account lockout, complementing the per-IP rate limit. A distributed
+    # attack gets a fresh IP bucket per host but still trips this one.
+    enabled: ${LOGIN_LOCKOUT_ENABLED:true}
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:8}
+    lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost}
   rate-limit:
@@ -63,6 +132,16 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+  endpoint:
+    health:
+      # Separate liveness and readiness, so traffic is only routed to an
+      # instance whose database is actually reachable.
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: db
+      show-details: when-authorized
   metrics:
     tags:
       application: spendly
@@ -71,3 +150,6 @@ logging:
   level:
     org.hibernate.SQL: warn
     com.spendly: info
+  pattern:
+    # requestId comes from RequestIdFilter; empty outside a request.
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{requestId:-}] %logger{36} - %msg%n"

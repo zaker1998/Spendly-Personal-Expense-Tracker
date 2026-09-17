@@ -10,6 +10,7 @@ import com.spendly.exception.ResourceNotFoundException;
 import com.spendly.repository.CategoryRepository;
 import com.spendly.repository.UserRepository;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +19,16 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher events;
 
-    public CategoryService(CategoryRepository categoryRepository, UserRepository userRepository) {
+    public CategoryService(
+            CategoryRepository categoryRepository,
+            UserRepository userRepository,
+            ApplicationEventPublisher events
+    ) {
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -50,8 +57,10 @@ public class CategoryService {
     public CategoryResponse update(Long userId, Long categoryId, CategoryRequest request) {
         Category category = categoryRepository.findByIdAndUserId(categoryId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        ExpenseService.requireCurrentVersion(category.getVersion(), request.version());
 
         String newName = request.name().trim();
+        boolean renamed = !category.getName().equals(newName);
         if (!category.getName().equalsIgnoreCase(newName)
                 && categoryRepository.existsByUserIdAndNameIgnoreCase(userId, newName)) {
             throw new ConflictException("Category already exists");
@@ -59,6 +68,15 @@ public class CategoryService {
 
         category.setName(newName);
         category.setColor(request.color());
+        // See ExpenseService.update: the version in the response has to be the
+        // one the row now holds, not the one it held on the way in.
+        categoryRepository.flush();
+        if (renamed) {
+            // The cached monthly summary embeds category names, and nothing else
+            // invalidates it on a rename — the dashboard used to show the old
+            // name until the entry expired.
+            events.publishEvent(new CategoryRenamedEvent(userId));
+        }
         return toResponse(category);
     }
 
@@ -87,6 +105,7 @@ public class CategoryService {
                 category.getId(),
                 category.getName(),
                 category.getColor(),
+                category.getVersion(),
                 category.getCreatedAt()
         );
     }

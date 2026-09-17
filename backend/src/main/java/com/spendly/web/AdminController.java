@@ -6,6 +6,7 @@ import com.spendly.service.AdminService;
 import com.spendly.service.ExpenseService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Admin")
 public class AdminController {
 
+    private static final Set<String> USER_SORTABLE = Set.of("createdAt", "email", "role", "id");
+    private static final Set<String> EXPENSE_SORTABLE = Set.of("spentOn", "amount", "createdAt", "id");
+
     private final AdminService adminService;
     private final ExpenseService expenseService;
 
@@ -33,7 +37,7 @@ public class AdminController {
     public Page<UserResponse> users(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return adminService.listUsers(pageable);
+        return adminService.listUsers(Sorting.validate(pageable, USER_SORTABLE));
     }
 
     @GetMapping("/expenses")
@@ -43,6 +47,7 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @PageableDefault(size = 20, sort = "spentOn", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return expenseService.listAllForAdmin(categoryId, from, to, pageable);
+        return expenseService.listAllForAdmin(categoryId, from, to,
+                Sorting.validate(pageable, EXPENSE_SORTABLE));
     }
 }

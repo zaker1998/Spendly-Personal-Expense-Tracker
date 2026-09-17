@@ -9,12 +9,10 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -54,6 +52,13 @@ public class ExpenseExportService {
      * Each chunk is its own short read-only transaction instead. The cost is
      * that a concurrent insert can land in a later chunk — for an export of your
      * own expenses that is a fair trade.
+     *
+     * <p>Chunks are read by seeking past the last id rather than by OFFSET. With
+     * OFFSET the database re-reads and discards every row before the offset on
+     * each chunk, so the cost of the export grew with the square of its size;
+     * and asking for a {@code Page} added a {@code COUNT(*)} over the whole
+     * filter to each of the up-to-100 chunks. Seeking on the primary key is one
+     * index range scan per chunk, with no count at all.
      */
     public void writeCsv(
             OutputStream out,
@@ -68,36 +73,38 @@ public class ExpenseExportService {
         Writer writer = new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
         writer.write(HEADER);
 
-        // A total order is not optional when reading in chunks. The filter query
-        // has no ORDER BY of its own, so without this the database may return a
-        // different order per OFFSET query and rows get duplicated or skipped
-        // across chunk boundaries. id is unique, which makes the order total.
-        Sort sort = Sort.by(Sort.Direction.ASC, "id");
-
         long written = 0;
-        int pageNumber = 0;
+        long afterId = 0;
 
         while (written < maxRows) {
-            Page<ExpenseResponse> chunk = expenseService.list(
-                    userId, categoryId, from, to, minAmount, maxAmount, search,
-                    PageRequest.of(pageNumber, CHUNK_SIZE, sort));
+            int wanted = (int) Math.min(CHUNK_SIZE, maxRows - written);
+            List<ExpenseResponse> chunk = expenseService.listAfterId(
+                    userId, afterId, wanted, categoryId, from, to, minAmount, maxAmount, search);
 
-            if (pageNumber == 0 && chunk.getTotalElements() > maxRows) {
-                log.warn("Export for user {} matches {} rows, truncating to the {} row cap",
-                        userId, chunk.getTotalElements(), maxRows);
+            if (chunk.isEmpty()) {
+                break;
             }
 
             for (ExpenseResponse expense : chunk) {
                 writeRow(writer, expense);
+                afterId = expense.id();
+                // Belt and braces: the query is asked for at most `wanted` rows,
+                // but the cap is a hard limit on what leaves the server and
+                // should not depend on the query honouring its own limit.
                 if (++written >= maxRows) {
                     break;
                 }
             }
 
-            if (!chunk.hasNext()) {
+            // A short chunk means the filter is exhausted; asking again would
+            // only cost a query that returns nothing.
+            if (chunk.size() < wanted) {
                 break;
             }
-            pageNumber++;
+        }
+
+        if (written >= maxRows) {
+            log.warn("Export for user {} reached the {} row cap; the file may be truncated", userId, maxRows);
         }
 
         writer.flush();

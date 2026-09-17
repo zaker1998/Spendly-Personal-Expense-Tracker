@@ -4,6 +4,7 @@ import com.spendly.config.CacheConfig;
 import java.time.LocalDate;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -31,6 +32,11 @@ public class SummaryCacheEvictor {
         evictMonth(event.userId(), event.spentOn());
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onCategoryRenamed(CategoryRenamedEvent event) {
+        evictAllForUser(event.userId());
+    }
+
     void evictMonth(Long userId, LocalDate spentOn) {
         if (userId == null || spentOn == null) {
             return;
@@ -39,5 +45,28 @@ public class SummaryCacheEvictor {
         if (cache != null) {
             cache.evict(userId + ":" + spentOn.getYear() + ":" + spentOn.getMonthValue());
         }
+    }
+
+    /**
+     * Drops every cached month for one user.
+     *
+     * <p>Keys are {@code userId:year:month} strings, so this walks the native
+     * map rather than calling {@code clear()} — clearing would throw away every
+     * other user's warm entries to fix one user's stale names.
+     */
+    void evictAllForUser(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache(CacheConfig.MONTHLY_SUMMARY_CACHE);
+        if (!(cache instanceof CaffeineCache caffeine)) {
+            if (cache != null) {
+                cache.clear();
+            }
+            return;
+        }
+        String prefix = userId + ":";
+        caffeine.getNativeCache().asMap().keySet()
+                .removeIf(key -> key instanceof String s && s.startsWith(prefix));
     }
 }

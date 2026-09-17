@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -38,6 +39,10 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 @RequestMapping("/api/expenses")
 @Tag(name = "Expenses")
 public class ExpenseController {
+
+    /** Sortable columns of the expense list, checked before the query is built. */
+    private static final Set<String> SORTABLE =
+            Set.of("spentOn", "amount", "description", "createdAt", "updatedAt", "id");
 
     private final ExpenseService expenseService;
     private final ExpenseExportService expenseExportService;
@@ -71,7 +76,7 @@ public class ExpenseController {
                 minAmount,
                 maxAmount,
                 search,
-                pageable
+                Sorting.validate(pageable, SORTABLE)
         );
     }
 

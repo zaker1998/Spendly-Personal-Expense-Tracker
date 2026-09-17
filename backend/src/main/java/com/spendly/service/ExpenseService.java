@@ -12,7 +12,10 @@ import com.spendly.repository.ExpenseRepository;
 import com.spendly.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -49,29 +52,51 @@ public class ExpenseService {
             String search,
             Pageable pageable
     ) {
-        boolean hasCategory = categoryId != null;
-        boolean hasFrom = fromDate != null;
-        boolean hasTo = toDate != null;
-        boolean hasMin = minAmount != null;
-        boolean hasMax = maxAmount != null;
-        boolean hasSearch = search != null && !search.isBlank();
-        String searchPattern = hasSearch ? "%" + escapeLike(search.trim().toLowerCase()) + "%" : "%";
+        ExpenseFilter f = ExpenseFilter.of(categoryId, fromDate, toDate, minAmount, maxAmount, search);
         return expenseRepository.findFiltered(
                         userId,
-                        hasCategory,
-                        hasCategory ? categoryId : 0L,
-                        hasFrom,
-                        hasFrom ? fromDate : LocalDate.EPOCH,
-                        hasTo,
-                        hasTo ? toDate : LocalDate.EPOCH,
-                        hasMin,
-                        hasMin ? minAmount : BigDecimal.ZERO,
-                        hasMax,
-                        hasMax ? maxAmount : BigDecimal.ZERO,
-                        hasSearch,
-                        searchPattern,
+                        f.hasCategory(), f.categoryId(),
+                        f.hasFrom(), f.fromDate(),
+                        f.hasTo(), f.toDate(),
+                        f.hasMin(), f.minAmount(),
+                        f.hasMax(), f.maxAmount(),
+                        f.hasSearch(), f.searchPattern(),
                         pageable)
                 .map(this::toResponse);
+    }
+
+    /**
+     * One keyset chunk of the same filter, ordered by id, for the CSV export.
+     *
+     * <p>Its own short read-only transaction per chunk: the export is paced by
+     * the client's download speed, and one transaction spanning the whole write
+     * would hold a pooled connection for exactly that long.
+     */
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> listAfterId(
+            Long userId,
+            long afterId,
+            int limit,
+            Long categoryId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            BigDecimal minAmount,
+            BigDecimal maxAmount,
+            String search
+    ) {
+        ExpenseFilter f = ExpenseFilter.of(categoryId, fromDate, toDate, minAmount, maxAmount, search);
+        return expenseRepository.findFilteredAfterId(
+                        userId, afterId,
+                        f.hasCategory(), f.categoryId(),
+                        f.hasFrom(), f.fromDate(),
+                        f.hasTo(), f.toDate(),
+                        f.hasMin(), f.minAmount(),
+                        f.hasMax(), f.maxAmount(),
+                        f.hasSearch(), f.searchPattern(),
+                        Limit.of(limit))
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -98,6 +123,7 @@ public class ExpenseService {
     public ExpenseResponse update(Long userId, Long expenseId, ExpenseRequest request) {
         Expense expense = expenseRepository.findByIdAndUserIdWithCategory(expenseId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        requireCurrentVersion(expense.getVersion(), request.version());
         Category category = categoryService.getOwnedOrThrow(userId, request.categoryId());
         // The expense may move between months, so both the old and new summary
         // entries must be invalidated.
@@ -105,6 +131,10 @@ public class ExpenseService {
         events.publishEvent(new SummaryChangedEvent(userId, request.spentOn()));
         expense.setCategory(category);
         applyRequest(expense, request);
+        // Hibernate increments @Version on flush, which otherwise happens after
+        // this method has already built the response — so the client was handed
+        // back the version it sent, and its next save failed as "stale".
+        expenseRepository.flush();
         return toResponse(expense);
     }
 
@@ -148,12 +178,22 @@ public class ExpenseService {
                 ));
     }
 
-    /** Escapes LIKE wildcards so searching for "100%" doesn't match everything. */
-    private static String escapeLike(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
+    /**
+     * Rejects a write built from a copy of the row the client has since stopped
+     * holding.
+     *
+     * <p>Hibernate's own {@code @Version} check only covers the window inside
+     * one transaction. Two tabs that each load, then each save, are two separate
+     * transactions and both would succeed — the second silently discarding the
+     * first. Comparing the version the client sent closes that gap. The field is
+     * optional so an older client, or a script, still works; it just gives up
+     * the protection.
+     */
+    static void requireCurrentVersion(Long actual, Long submitted) {
+        if (submitted != null && !submitted.equals(actual)) {
+            throw new OptimisticLockingFailureException(
+                    "Stale version: client had " + submitted + ", current is " + actual);
+        }
     }
 
     private void applyRequest(Expense expense, ExpenseRequest request) {
@@ -174,6 +214,7 @@ public class ExpenseService {
                 expense.getCurrency(),
                 expense.getSpentOn(),
                 expense.getDescription(),
+                expense.getVersion(),
                 expense.getCreatedAt(),
                 expense.getUpdatedAt()
         );

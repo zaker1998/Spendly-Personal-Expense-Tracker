@@ -5,13 +5,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.repository.Modifying;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
@@ -22,6 +23,13 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             """)
     Optional<Expense> findByIdAndUserIdWithCategory(@Param("id") Long id, @Param("userId") Long userId);
 
+    /**
+     * The description predicate is {@code LOWER(e.description)} and nothing else
+     * on purpose. It used to be wrapped in {@code COALESCE(..., '')}, and that
+     * wrapper is not the expression the trigram index in V5 is built on, so the
+     * index could never be used. Dropping it changes no results: a row with no
+     * description cannot match a search term either way.
+     */
     @EntityGraph(attributePaths = {"category"})
     @Query("""
             SELECT e FROM Expense e
@@ -31,7 +39,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
               AND (:hasTo = false OR e.spentOn <= :toDate)
               AND (:hasMin = false OR e.amount >= :minAmount)
               AND (:hasMax = false OR e.amount <= :maxAmount)
-              AND (:hasSearch = false OR LOWER(COALESCE(e.description, '')) LIKE :searchPattern ESCAPE '\\')
+              AND (:hasSearch = false OR LOWER(e.description) LIKE :searchPattern ESCAPE '\\')
             """)
     Page<Expense> findFiltered(
             @Param("userId") Long userId,
@@ -48,6 +56,47 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("hasSearch") boolean hasSearch,
             @Param("searchPattern") String searchPattern,
             Pageable pageable
+    );
+
+    /**
+     * Keyset ("seek") page of the same filter, for the CSV export.
+     *
+     * <p>The export used to walk the result with OFFSET pages, which makes the
+     * database re-scan and discard everything before the offset on each chunk —
+     * quadratic over the 50 000 row cap — and, because it asked for a
+     * {@code Page}, added a {@code COUNT(*)} over the whole filter to every one
+     * of those chunks. Seeking on the primary key is a single index range scan
+     * per chunk and needs no count at all.
+     */
+    @EntityGraph(attributePaths = {"category"})
+    @Query("""
+            SELECT e FROM Expense e
+            WHERE e.user.id = :userId
+              AND e.id > :afterId
+              AND (:hasCategory = false OR e.category.id = :categoryId)
+              AND (:hasFrom = false OR e.spentOn >= :fromDate)
+              AND (:hasTo = false OR e.spentOn <= :toDate)
+              AND (:hasMin = false OR e.amount >= :minAmount)
+              AND (:hasMax = false OR e.amount <= :maxAmount)
+              AND (:hasSearch = false OR LOWER(e.description) LIKE :searchPattern ESCAPE '\\')
+            ORDER BY e.id ASC
+            """)
+    List<Expense> findFilteredAfterId(
+            @Param("userId") Long userId,
+            @Param("afterId") Long afterId,
+            @Param("hasCategory") boolean hasCategory,
+            @Param("categoryId") Long categoryId,
+            @Param("hasFrom") boolean hasFrom,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("hasTo") boolean hasTo,
+            @Param("toDate") LocalDate toDate,
+            @Param("hasMin") boolean hasMin,
+            @Param("minAmount") BigDecimal minAmount,
+            @Param("hasMax") boolean hasMax,
+            @Param("maxAmount") BigDecimal maxAmount,
+            @Param("hasSearch") boolean hasSearch,
+            @Param("searchPattern") String searchPattern,
+            Limit limit
     );
 
     @EntityGraph(attributePaths = {"category", "user"})

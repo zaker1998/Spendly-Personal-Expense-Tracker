@@ -24,10 +24,12 @@ public class JwtService {
 
     private final SecretKey secretKey;
     private final long expirationMs;
+    private final String issuer;
 
     public JwtService(
             @Value("${spendly.jwt.secret:" + DEV_SECRET + "}") String secret,
-            @Value("${spendly.jwt.expiration-ms:86400000}") long expirationMs
+            @Value("${spendly.jwt.expiration-ms:900000}") long expirationMs,
+            @Value("${spendly.jwt.issuer:spendly}") String issuer
     ) {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         // Previously a short secret was zero-padded to 32 bytes, which silently
@@ -42,6 +44,7 @@ public class JwtService {
         }
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.expirationMs = expirationMs;
+        this.issuer = issuer;
     }
 
     public String generateToken(UserPrincipal principal) {
@@ -53,30 +56,38 @@ public class JwtService {
                         "role", principal.getRole().name()
                 ))
                 .subject(principal.getUsername())
+                .issuer(issuer)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
                 .compact();
     }
 
-    public String extractUsername(String token) {
-        return parseClaims(token).getSubject();
+    public long getExpirationMs() {
+        return expirationMs;
     }
 
-    public boolean isTokenValid(String token, UserPrincipal principal) {
-        String username = extractUsername(token);
-        return username.equalsIgnoreCase(principal.getUsername()) && !isExpired(token);
-    }
-
-    private boolean isExpired(String token) {
-        return parseClaims(token).getExpiration().before(new Date());
-    }
-
-    private Claims parseClaims(String token) {
+    /**
+     * Verifies the signature, the issuer and the expiry, and returns the claims.
+     *
+     * <p>One parse per request. The previous shape — {@code extractUsername} plus
+     * {@code isTokenValid} plus {@code isExpired} — verified the same signature
+     * three times for every call to every endpoint, and re-checked an expiry that
+     * the parser already enforces.
+     *
+     * @throws io.jsonwebtoken.JwtException if the token is malformed, unsigned by
+     *     this key, issued by someone else, or expired
+     */
+    public Claims parse(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
+                .requireIssuer(issuer)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public String extractUsername(String token) {
+        return parse(token).getSubject();
     }
 }
