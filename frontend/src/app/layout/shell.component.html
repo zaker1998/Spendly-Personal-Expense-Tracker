@@ -2,15 +2,20 @@
      <base href="/"> the browser resolves "#main-content" against the base and
      navigates to the root route, so a plain fragment link would throw the user
      off whatever page they were on. -->
-<a class="skip-link" href="#main-content" (click)="skipToContent($event, main)">Skip to main content</a>
+<a class="skip-link" href="#main-content" (click)="skipToContent($event, main)"
+  >Skip to main content</a
+>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand">Spendly</div>
     <nav aria-label="Main">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
+        >Dashboard</a
+      >
       <a routerLink="/expenses" routerLinkActive="active">Expenses</a>
       <a routerLink="/categories" routerLinkActive="active">Categories</a>
       <a routerLink="/budgets" routerLinkActive="active">Budgets</a>
+      <a routerLink="/account" routerLinkActive="active">Account</a>
       @if (auth.isAdmin()) {
         <a routerLink="/admin" routerLinkActive="active">Admin</a>
       }
@@ -26,3 +31,4 @@
     <router-outlet />
   </main>
 </div>
+<app-toasts />

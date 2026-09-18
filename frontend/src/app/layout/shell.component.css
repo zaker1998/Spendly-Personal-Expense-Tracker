@@ -2,9 +2,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 240px 1fr;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(42, 157, 143, 0.12), transparent 30%),
-    #f6f3ee;
+  background: radial-gradient(circle at 100% 0%, var(--shell-glow), transparent 30%), var(--bg);
 }
 
 .sidebar {
@@ -12,12 +10,12 @@
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.5rem 1.1rem;
-  background: #264653;
-  color: #f4f7f6;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-ink);
 }
 
 .brand {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: 'Fraunces', Georgia, serif;
   font-size: 1.7rem;
   padding: 0 0.4rem;
 }
@@ -33,7 +31,7 @@ nav {
 }
 
 nav a {
-  color: #d7e3e0;
+  color: var(--sidebar-link);
   text-decoration: none;
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
@@ -41,8 +39,8 @@ nav a {
 
 nav a.active,
 nav a:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--sidebar-hover);
+  color: var(--on-primary);
 }
 
 .user {
@@ -50,13 +48,13 @@ nav a:hover {
   gap: 0.6rem;
   padding: 0.4rem;
   font-size: 0.85rem;
-  color: #c5d5d1;
+  color: var(--sidebar-muted);
 }
 
 .user button {
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--sidebar-button-border);
   background: transparent;
-  color: #fff;
+  color: var(--on-primary);
   border-radius: 8px;
   padding: 0.45rem 0.6rem;
   cursor: pointer;
