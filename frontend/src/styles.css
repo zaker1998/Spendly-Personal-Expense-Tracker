@@ -1,3 +1,108 @@
+/* Colour tokens.
+ *
+ * Every colour in the app resolves through these, so a theme is one block of
+ * overrides rather than a hunt through component stylesheets. The light values
+ * are the palette the app always had; component CSS used to carry them as
+ * literals, which is what made a dark theme impossible to add.
+ */
+:root {
+  color-scheme: light;
+
+  --bg: #f6f3ee;
+  --ink: #1f2d33;
+  --muted: #5c6b73;
+  --muted-2: #6b7c83;
+  --heading: #264653;
+
+  --surface: rgba(255, 255, 255, 0.85);
+  --field-bg: #fff;
+  --line: #d5dde1;
+  --line-soft: #e7ecee;
+  --border-faint: rgba(38, 70, 83, 0.08);
+  --shadow-color: rgba(38, 70, 83, 0.08);
+
+  /* Button fills carry white text; each was checked at or above 4.5:1. */
+  --primary: #264653;
+  --on-primary: #fff;
+  --accent-strong: #1f7a6e;
+  --danger-bg: #b1543d;
+
+  --link: #1f7a6e;
+  --accent-bright: #2a9d8f;
+  --danger: #b23a28;
+  --warn-fill: #e76f51;
+  --focus: #1f6f8b;
+
+  --notice-bg: #eef4f2;
+  --notice-ink: #35505c;
+  --badge-bg: #e8f3f1;
+
+  --sidebar-bg: #264653;
+  --sidebar-ink: #f4f7f6;
+  --sidebar-link: #d7e3e0;
+  --sidebar-muted: #c5d5d1;
+  --sidebar-hover: rgba(255, 255, 255, 0.1);
+  --sidebar-button-border: rgba(255, 255, 255, 0.25);
+
+  --shell-glow: rgba(42, 157, 143, 0.12);
+  --auth-glow-1: rgba(42, 157, 143, 0.18);
+  --auth-glow-2: rgba(231, 111, 81, 0.16);
+  --auth-grad-1: #f7f4ef;
+  --auth-grad-2: #eef3f1;
+  --auth-grad-3: #f8f1ea;
+}
+
+/* Dark theme follows the OS setting. Not a naive inversion: the brand teal is
+ * lifted for text on a dark ground, while button fills keep the values that were
+ * already contrast-checked against white text. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #111a1d;
+    --ink: #e2e9e9;
+    --muted: #9bacb1;
+    --muted-2: #8b9ca1;
+    --heading: #9fd3ca;
+
+    --surface: rgba(27, 39, 43, 0.92);
+    --field-bg: #1a262a;
+    --line: #34474d;
+    --line-soft: #26363b;
+    --border-faint: rgba(159, 211, 202, 0.1);
+    --shadow-color: rgba(0, 0, 0, 0.35);
+
+    --primary: #36707f;
+    --on-primary: #fff;
+    --accent-strong: #1f7a6e;
+    --danger-bg: #b1543d;
+
+    --link: #6ccfc0;
+    --accent-bright: #45bfae;
+    --danger: #f0917a;
+    --warn-fill: #e98a70;
+    --focus: #72c6db;
+
+    --notice-bg: #1c2d31;
+    --notice-ink: #bdd3d1;
+    --badge-bg: #1f3a3a;
+
+    --sidebar-bg: #16232a;
+    --sidebar-ink: #eef4f3;
+    --sidebar-link: #c4d6d2;
+    --sidebar-muted: #9fb6b1;
+    --sidebar-hover: rgba(255, 255, 255, 0.08);
+    --sidebar-button-border: rgba(255, 255, 255, 0.22);
+
+    --shell-glow: rgba(69, 191, 174, 0.08);
+    --auth-glow-1: rgba(69, 191, 174, 0.14);
+    --auth-glow-2: rgba(233, 138, 112, 0.1);
+    --auth-grad-1: #111a1d;
+    --auth-grad-2: #14211f;
+    --auth-grad-3: #1a1a1d;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -8,15 +113,24 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font-family: "Source Sans 3", "Segoe UI", sans-serif;
-  color: #1f2d33;
-  background: #f6f3ee;
+  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
 }
 
 button,
 input,
 select {
   font: inherit;
+}
+
+/* Fields take the theme's colours even where a component stylesheet does not
+   set them; otherwise a dark page would show light text on a white input. */
+input,
+select,
+textarea {
+  color: var(--ink);
+  background-color: var(--field-bg);
 }
 
 /* Every interactive element needs a focus ring a keyboard user can actually
@@ -28,7 +142,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #1f6f8b;
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -56,8 +170,8 @@ select:focus-visible,
   z-index: 100;
   padding: 0.5rem 0.9rem;
   border-radius: 0 0 6px 6px;
-  background: #1f2d33;
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   text-decoration: none;
   transition: top 0.15s ease-in-out;
 }

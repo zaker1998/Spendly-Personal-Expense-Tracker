@@ -9,7 +9,8 @@ export const routes: Routes = [
   },
   {
     path: 'register',
-    loadComponent: () => import('./pages/register/register.component').then((m) => m.RegisterComponent),
+    loadComponent: () =>
+      import('./pages/register/register.component').then((m) => m.RegisterComponent),
     canActivate: [guestGuard]
   },
   {
@@ -19,19 +20,28 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        loadComponent: () => import('./pages/dashboard/dashboard.component').then((m) => m.DashboardComponent)
+        loadComponent: () =>
+          import('./pages/dashboard/dashboard.component').then((m) => m.DashboardComponent)
       },
       {
         path: 'expenses',
-        loadComponent: () => import('./pages/expenses/expenses.component').then((m) => m.ExpensesComponent)
+        loadComponent: () =>
+          import('./pages/expenses/expenses.component').then((m) => m.ExpensesComponent)
       },
       {
         path: 'categories',
-        loadComponent: () => import('./pages/categories/categories.component').then((m) => m.CategoriesComponent)
+        loadComponent: () =>
+          import('./pages/categories/categories.component').then((m) => m.CategoriesComponent)
       },
       {
         path: 'budgets',
-        loadComponent: () => import('./pages/budgets/budgets.component').then((m) => m.BudgetsComponent)
+        loadComponent: () =>
+          import('./pages/budgets/budgets.component').then((m) => m.BudgetsComponent)
+      },
+      {
+        path: 'account',
+        loadComponent: () =>
+          import('./pages/account/account.component').then((m) => m.AccountComponent)
       },
       {
         path: 'admin',
