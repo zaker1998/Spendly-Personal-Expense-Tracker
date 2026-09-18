@@ -165,7 +165,7 @@ Without a key, *Suggest category* still works via the keyword heuristic.
 | `REFRESH_EXPIRATION_MS` | `2592000000` | Refresh token lifetime (30 days) |
 | `REFRESH_COOKIE_SECURE` | `true` | `http://localhost` counts as secure, so this can stay on locally |
 | `REFRESH_COOKIE_SAME_SITE` | `Lax` | Enough for every setup here: `:4200 → :8080` is cross-origin but same-site |
-| `DB_POOL_MAX` / `DB_POOL_MIN_IDLE` | `8` / `2` | Hikari pool, sized for the free Neon tier |
+| `DB_POOL_MAX` / `DB_POOL_MIN_IDLE` | `8` / `0` | Hikari pool, sized for the free Neon tier; no idle minimum so Neon can scale to zero |
 | `VIRTUAL_THREADS_ENABLED` | `true` | Java 21 virtual threads for request handling |
 | `SEED_DEMO_DATA` | `false` | Create the demo/admin accounts above |
 | `EXPORT_MAX_ROWS` | `50000` | Backstop on the streamed CSV export |
@@ -239,8 +239,11 @@ startup.
 > That first call still matters: CloudFront's origin read timeout caps at 60s,
 > which leaves little room above a 52s wake-up, so a sleeping instance risks a 504
 > rather than a slow success. `.github/workflows/keep-warm.yml` pings
-> `/actuator/health` on a schedule to avoid it — one request, and because that
-> endpoint includes a database check it warms the Neon compute too. Set the
+> `/actuator/health/liveness` on a schedule to avoid it. Point it at liveness,
+> not `/actuator/health`: that one runs a database check, and anything that
+> touches the database while nobody is using the app keeps the Neon compute
+> awake and spends the free tier's 100 CU-hours. Neon itself wakes in under a
+> second on the first real query, so it needs no warming. Set the
 > `KEEPWARM_URL` repository variable to enable it; forks skip the job.
 
 ## Screenshots

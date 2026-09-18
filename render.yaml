@@ -12,10 +12,13 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Readiness includes the database, so Render only routes to an instance
-    # that can actually answer; plain /actuator/health would pass while the
-    # Neon compute is still waking up.
-    healthCheckPath: /actuator/health/readiness
+    # Liveness, not readiness: Render polls this path for as long as the
+    # instance is up, and readiness runs a database check, so every poll reset
+    # Neon's five-minute suspend timer and the compute never scaled to zero —
+    # enough to exhaust the free 100 CU-hours in about 17 days. An unreachable
+    # database still fails the deploy, because Flyway migrates before the app
+    # reports live.
+    healthCheckPath: /actuator/health/liveness
     envVars:
       - key: JWT_SECRET
         generateValue: true

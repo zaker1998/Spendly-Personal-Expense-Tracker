@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   ping:
-    name: Ping /actuator/health
+    name: Ping /actuator/health/liveness
     runs-on: ubuntu-latest
     if: vars.KEEPWARM_URL != ''
     timeout-minutes: 10

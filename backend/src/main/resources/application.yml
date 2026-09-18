@@ -9,7 +9,10 @@ spring:
       # Sized for the free Neon tier, which allows far fewer connections than
       # Hikari's default pool of 10 per instance would claim under load.
       maximum-pool-size: ${DB_POOL_MAX:8}
-      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      # Zero, so an idle instance drains its pool and Neon can scale to zero.
+      # With a minimum, Hikari keeps replacing connections as they reach
+      # max-lifetime, and each new one resets Neon's suspend timer.
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
       connection-timeout: 10000
       # Below Neon's idle timeout, so the pool retires connections before the
       # server does and no request ever picks up a dead one.
