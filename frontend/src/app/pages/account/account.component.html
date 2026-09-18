@@ -1,0 +1,50 @@
+<section class="page">
+  <header>
+    <div>
+      <h1>Account</h1>
+      <p>Signed in as {{ session()?.email }}</p>
+    </div>
+  </header>
+
+  <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+    <h2>Change password</h2>
+    <p class="muted">
+      Changing your password signs out every other device. Use it if you think someone else has
+      access to your account.
+    </p>
+
+    <label for="current-password">Current password</label>
+    <input
+      id="current-password"
+      type="password"
+      formControlName="currentPassword"
+      autocomplete="current-password"
+    />
+
+    <label for="new-password">New password</label>
+    <input
+      id="new-password"
+      type="password"
+      formControlName="newPassword"
+      autocomplete="new-password"
+      aria-describedby="new-password-hint"
+    />
+    <p id="new-password-hint" class="muted">At least 8 characters.</p>
+
+    <label for="confirm-password">Repeat new password</label>
+    <input
+      id="confirm-password"
+      type="password"
+      formControlName="confirmPassword"
+      autocomplete="new-password"
+    />
+
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="saving()">
+      {{ saving() ? 'Saving…' : 'Change password' }}
+    </button>
+  </form>
+</section>

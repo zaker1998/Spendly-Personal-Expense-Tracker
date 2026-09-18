@@ -1,102 +1,130 @@
-import { CurrencyPipe, DatePipe, NgFor, NgIf } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Observable, Subject, catchError, of, switchMap, tap } from 'rxjs';
+import { describeError } from '../../core/api-error';
 import { ApiService } from '../../core/api.service';
 import { AdminExpense, AppUser, PageResponse } from '../../core/models';
+import { NotificationService } from '../../core/notification.service';
+
+const PAGE_SIZE = 20;
+
+type Tab = 'users' | 'expenses';
+
+interface LoadRequest {
+  tab: Tab;
+  page: number;
+}
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [NgFor, NgIf, CurrencyPipe, DatePipe, ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css'
 })
 export class AdminComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly notifications = inject(NotificationService);
 
-  private static readonly PAGE_SIZE = 20;
+  /**
+   * One stream for both tabs: switching tab while the other one is still
+   * loading cancels it, instead of letting a late users response land on the
+   * expenses view.
+   */
+  private readonly loads = new Subject<LoadRequest>();
 
-  tab: 'users' | 'expenses' = 'users';
-  users: AppUser[] = [];
-  expenses: AdminExpense[] = [];
-  page = 0;
-  totalPages = 0;
-  totalElements = 0;
-  loading = true;
-  error = '';
+  readonly tab = signal<Tab>('users');
+  readonly users = signal<AppUser[]>([]);
+  readonly expenses = signal<AdminExpense[]>([]);
+  readonly page = signal(0);
+  readonly totalPages = signal(0);
+  readonly totalElements = signal(0);
+  readonly loading = signal(true);
 
-  filters = this.fb.nonNullable.group({
+  readonly filters = this.fb.nonNullable.group({
     from: [''],
     to: ['']
   });
 
+  constructor() {
+    this.loads
+      .pipe(
+        tap(() => this.loading.set(true)),
+        switchMap((request) =>
+          this.fetch(request).pipe(
+            catchError((err: unknown) => {
+              this.notifications.error(
+                describeError(
+                  err,
+                  request.tab === 'users' ? 'Could not load users' : 'Could not load expenses'
+                )
+              );
+              return of(null);
+            })
+          )
+        ),
+        takeUntilDestroyed()
+      )
+      .subscribe(() => this.loading.set(false));
+  }
+
   ngOnInit(): void {
-    this.loadUsers();
+    this.showUsers();
   }
 
   showUsers(): void {
-    this.tab = 'users';
-    this.loadUsers();
+    this.tab.set('users');
+    this.loads.next({ tab: 'users', page: 0 });
   }
 
   showExpenses(): void {
-    this.tab = 'expenses';
-    this.loadExpenses();
+    this.tab.set('expenses');
+    this.loads.next({ tab: 'expenses', page: 0 });
   }
 
-  loadUsers(page = 0): void {
-    this.loading = true;
-    this.error = '';
-    this.api.getAdminUsers(page, AdminComponent.PAGE_SIZE).subscribe({
-      next: (res) => {
-        this.users = res.content;
-        this.applyPageMeta(res);
-      },
-      error: (err) => this.fail(err, 'Failed to load users')
-    });
-  }
-
-  loadExpenses(page = 0): void {
-    this.loading = true;
-    this.error = '';
-    const f = this.filters.getRawValue();
-    this.api
-      .getAdminExpenses({
-        from: f.from || null,
-        to: f.to || null,
-        page,
-        size: AdminComponent.PAGE_SIZE
-      })
-      .subscribe({
-        next: (res) => {
-          this.expenses = res.content;
-          this.applyPageMeta(res);
-        },
-        error: (err) => this.fail(err, 'Failed to load expenses')
-      });
+  loadExpenses(): void {
+    this.loads.next({ tab: 'expenses', page: 0 });
   }
 
   goToPage(page: number): void {
-    if (page < 0 || page >= this.totalPages) {
+    if (page < 0 || page >= this.totalPages()) {
       return;
     }
-    if (this.tab === 'users') {
-      this.loadUsers(page);
-    } else {
-      this.loadExpenses(page);
+    this.loads.next({ tab: this.tab(), page });
+  }
+
+  private fetch(request: LoadRequest): Observable<unknown> {
+    if (request.tab === 'users') {
+      return this.api.getAdminUsers(request.page, PAGE_SIZE).pipe(
+        tap((res) => {
+          this.users.set(res.content);
+          this.applyPageMeta(res);
+        })
+      );
     }
+    const f = this.filters.getRawValue();
+    return this.api
+      .getAdminExpenses({
+        from: f.from || null,
+        to: f.to || null,
+        page: request.page,
+        size: PAGE_SIZE
+      })
+      .pipe(
+        tap((res) => {
+          this.expenses.set(res.content);
+          this.applyPageMeta(res);
+        })
+      );
   }
 
   private applyPageMeta(res: PageResponse<unknown>): void {
-    this.page = res.number;
-    this.totalPages = res.totalPages;
-    this.totalElements = res.totalElements;
-    this.loading = false;
-  }
-
-  private fail(err: unknown, fallback: string): void {
-    this.loading = false;
-    this.error = (err as { error?: { message?: string } })?.error?.message ?? fallback;
+    this.page.set(res.number);
+    this.totalPages.set(res.totalPages);
+    this.totalElements.set(res.totalElements);
   }
 }

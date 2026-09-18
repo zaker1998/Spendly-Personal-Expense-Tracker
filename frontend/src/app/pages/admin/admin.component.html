@@ -10,101 +10,148 @@
        user arrow-key navigation, and claiming the role without it is worse than
        not claiming it. -->
   <div class="tabs" role="group" aria-label="Admin views">
-    <button type="button" [attr.aria-pressed]="tab === 'users'" [class.active]="tab === 'users'" (click)="showUsers()">
+    <button
+      type="button"
+      [attr.aria-pressed]="tab() === 'users'"
+      [class.active]="tab() === 'users'"
+      (click)="showUsers()"
+    >
       Users
     </button>
     <button
       type="button"
-      [attr.aria-pressed]="tab === 'expenses'"
-      [class.active]="tab === 'expenses'"
+      [attr.aria-pressed]="tab() === 'expenses'"
+      [class.active]="tab() === 'expenses'"
       (click)="showExpenses()"
     >
       All expenses
     </button>
   </div>
 
-  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
-  <p class="muted" role="status" *ngIf="loading">Loading…</p>
+  @if (loading()) {
+    <p class="muted" role="status">Loading…</p>
+  } @else if (tab() === 'users') {
+    <div class="panel">
+      @if (users().length) {
+        <table>
+          <caption class="visually-hidden">
+            Registered users
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Email</th>
+              <th scope="col">Role</th>
+              <th scope="col">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of users(); track u.id) {
+              <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.email }}</td>
+                <td>
+                  <span class="role">{{ u.role }}</span>
+                </td>
+                <td>{{ u.createdAt | date: 'mediumDate' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted" role="status">No users found.</p>
+      }
 
-  <div class="panel" *ngIf="!loading && tab === 'users'">
-    <table *ngIf="users.length; else noUsers">
-      <caption class="visually-hidden">Registered users</caption>
-      <thead>
-        <tr>
-          <th scope="col">ID</th>
-          <th scope="col">Email</th>
-          <th scope="col">Role</th>
-          <th scope="col">Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let u of users">
-          <td>{{ u.id }}</td>
-          <td>{{ u.email }}</td>
-          <td><span class="role">{{ u.role }}</span></td>
-          <td>{{ u.createdAt | date: 'mediumDate' }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <ng-template #noUsers><p class="muted" role="status">No users found.</p></ng-template>
-
-    <nav class="pager" aria-label="User pages" *ngIf="totalPages > 1">
-      <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
-      <span aria-live="polite">Page {{ page + 1 }} of {{ totalPages }}</span>
-      <button
-        type="button"
-        class="ghost"
-        [disabled]="page + 1 >= totalPages"
-        (click)="goToPage(page + 1)"
+      @if (totalPages() > 1) {
+        <nav class="pager" aria-label="User pages">
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="page() === 0"
+            (click)="goToPage(page() - 1)"
+          >
+            Previous
+          </button>
+          <span aria-live="polite">Page {{ page() + 1 }} of {{ totalPages() }}</span>
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="page() + 1 >= totalPages()"
+            (click)="goToPage(page() + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      }
+    </div>
+  } @else {
+    <div class="panel">
+      <form
+        class="filters"
+        [formGroup]="filters"
+        (ngSubmit)="loadExpenses()"
+        aria-label="Filter all expenses"
       >
-        Next
-      </button>
-    </nav>
-  </div>
+        <label class="visually-hidden" for="admin-from">From date</label>
+        <input id="admin-from" type="date" formControlName="from" />
+        <label class="visually-hidden" for="admin-to">To date</label>
+        <input id="admin-to" type="date" formControlName="to" />
+        <button type="submit">Filter</button>
+      </form>
 
-  <div class="panel" *ngIf="!loading && tab === 'expenses'">
-    <form class="filters" [formGroup]="filters" (ngSubmit)="loadExpenses()" aria-label="Filter all expenses">
-      <label class="visually-hidden" for="admin-from">From date</label>
-      <input id="admin-from" type="date" formControlName="from" />
-      <label class="visually-hidden" for="admin-to">To date</label>
-      <input id="admin-to" type="date" formControlName="to" />
-      <button type="submit">Filter</button>
-    </form>
+      @if (expenses().length) {
+        <table>
+          <caption class="visually-hidden">
+            Expenses across every user
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">User</th>
+              <th scope="col">Category</th>
+              <th scope="col">Description</th>
+              <th scope="col">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of expenses(); track e.id) {
+              <tr>
+                <td>{{ e.spentOn | date: 'mediumDate' }}</td>
+                <td>{{ e.userEmail }}</td>
+                <td>{{ e.categoryName }}</td>
+                <td>{{ e.description || '—' }}</td>
+                <td>{{ e.amount | currency: e.currency }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="muted" role="status">No expenses match these filters.</p>
+      }
 
-    <table *ngIf="expenses.length; else noExpenses">
-      <caption class="visually-hidden">Expenses across every user</caption>
-      <thead>
-        <tr>
-          <th scope="col">Date</th>
-          <th scope="col">User</th>
-          <th scope="col">Category</th>
-          <th scope="col">Description</th>
-          <th scope="col">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let e of expenses">
-          <td>{{ e.spentOn | date: 'mediumDate' }}</td>
-          <td>{{ e.userEmail }}</td>
-          <td>{{ e.categoryName }}</td>
-          <td>{{ e.description || '—' }}</td>
-          <td>{{ e.amount | currency: e.currency }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <ng-template #noExpenses><p class="muted" role="status">No expenses match these filters.</p></ng-template>
-
-    <nav class="pager" aria-label="Expense pages" *ngIf="totalPages > 1">
-      <button type="button" class="ghost" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
-      <span aria-live="polite">Page {{ page + 1 }} of {{ totalPages }} · {{ totalElements }} total</span>
-      <button
-        type="button"
-        class="ghost"
-        [disabled]="page + 1 >= totalPages"
-        (click)="goToPage(page + 1)"
-      >
-        Next
-      </button>
-    </nav>
-  </div>
+      @if (totalPages() > 1) {
+        <nav class="pager" aria-label="Expense pages">
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="page() === 0"
+            (click)="goToPage(page() - 1)"
+          >
+            Previous
+          </button>
+          <span aria-live="polite">
+            Page {{ page() + 1 }} of {{ totalPages() }} · {{ totalElements() }} total
+          </span>
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="page() + 1 >= totalPages()"
+            (click)="goToPage(page() + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      }
+    </div>
+  }
 </section>

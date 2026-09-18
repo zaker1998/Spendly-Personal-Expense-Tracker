@@ -10,7 +10,7 @@ header p {
 
 header p,
 .muted {
-  color: #5c6b73;
+  color: var(--muted);
 }
 
 .tabs {
@@ -23,22 +23,22 @@ header p,
 .filters input {
   font: inherit;
   border-radius: 10px;
-  border: 1px solid #d5dde1;
+  border: 1px solid var(--line);
   padding: 0.55rem 0.8rem;
-  background: #fff;
+  background: var(--field-bg);
   cursor: pointer;
 }
 
 .tabs button.active,
 .filters button {
-  background: #264653;
-  color: #fff;
-  border-color: #264653;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(38, 70, 83, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
   border-radius: 16px;
   padding: 1rem;
   overflow-x: auto;
@@ -60,20 +60,20 @@ th,
 td {
   text-align: left;
   padding: 0.65rem 0.35rem;
-  border-bottom: 1px solid #e7ecee;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .role {
   display: inline-block;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  background: #e8f3f1;
-  color: #264653;
+  background: var(--badge-bg);
+  color: var(--heading);
   font-size: 0.85rem;
 }
 
 .error {
-  color: #b23a28;
+  color: var(--danger);
 }
 
 .pager {
