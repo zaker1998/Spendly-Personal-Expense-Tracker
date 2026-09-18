@@ -1,29 +1,41 @@
-import { CurrencyPipe, NgFor, NgIf } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { describeError } from '../../core/api-error';
 import { ApiService } from '../../core/api.service';
 import { Budget, Category } from '../../core/models';
+import { NotificationService } from '../../core/notification.service';
 
 @Component({
   selector: 'app-budgets',
   standalone: true,
-  imports: [ReactiveFormsModule, NgFor, NgIf, CurrencyPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ReactiveFormsModule, CurrencyPipe],
   templateUrl: './budgets.component.html',
   styleUrl: './budgets.component.css'
 })
 export class BudgetsComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly notifications = inject(NotificationService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  budgets: Budget[] = [];
-  categories: Category[] = [];
-  error = '';
-  saving = false;
-  editingId: number | null = null;
+  private readonly now = new Date();
 
-  readonly now = new Date();
+  readonly budgets = signal<Budget[]>([]);
+  readonly categories = signal<Category[]>([]);
+  readonly saving = signal(false);
+  readonly editing = signal<Budget | null>(null);
 
-  form = this.fb.nonNullable.group({
+  readonly form = this.fb.nonNullable.group({
     categoryId: [''],
     amount: [100, [Validators.required, Validators.min(0.01)]],
     year: [this.now.getFullYear(), Validators.required],
@@ -31,19 +43,27 @@ export class BudgetsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.api.getCategories().subscribe({ next: (c) => (this.categories = c) });
+    this.api
+      .getCategories()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (categories) => this.categories.set(categories),
+        error: (err: unknown) =>
+          this.notifications.error(describeError(err, 'Could not load categories'))
+      });
     this.reload();
   }
 
   reload(): void {
     const { year, month } = this.form.getRawValue();
-    this.api.getBudgets(year, month).subscribe({
-      next: (budgets) => {
-        this.budgets = budgets;
-        this.error = '';
-      },
-      error: () => (this.error = 'Failed to load budgets')
-    });
+    this.api
+      .getBudgets(year, month)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (budgets) => this.budgets.set(budgets),
+        error: (err: unknown) =>
+          this.notifications.error(describeError(err, 'Could not load budgets'))
+      });
   }
 
   submit(): void {
@@ -51,37 +71,36 @@ export class BudgetsComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+    const editing = this.editing();
     const value = this.form.getRawValue();
     const body = {
       categoryId: value.categoryId ? Number(value.categoryId) : null,
       amount: Number(value.amount),
       year: Number(value.year),
-      month: Number(value.month)
+      month: Number(value.month),
+      version: editing?.version
     };
 
-    const req$ =
-      this.editingId == null
-        ? this.api.createBudget(body)
-        : this.api.updateBudget(this.editingId, body);
+    this.saving.set(true);
+    const request$ = editing
+      ? this.api.updateBudget(editing.id, body)
+      : this.api.createBudget(body);
 
-    this.saving = true;
-    req$.subscribe({
+    request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        this.saving = false;
-        this.error = '';
-        this.editingId = null;
-        this.form.patchValue({ amount: 100, categoryId: '' });
+        this.saving.set(false);
+        this.cancelEdit();
         this.reload();
       },
-      error: (err) => {
-        this.saving = false;
-        this.error = err?.error?.message ?? 'Save failed';
+      error: (err: unknown) => {
+        this.saving.set(false);
+        this.notifications.error(describeError(err, 'Could not save the budget'));
       }
     });
   }
 
   edit(budget: Budget): void {
-    this.editingId = budget.id;
+    this.editing.set(budget);
     this.form.patchValue({
       categoryId: budget.categoryId != null ? String(budget.categoryId) : '',
       amount: budget.limitAmount,
@@ -94,17 +113,18 @@ export class BudgetsComponent implements OnInit {
     if (!confirm(`Delete the ${budget.categoryName} budget?`)) {
       return;
     }
-    this.api.deleteBudget(budget.id).subscribe({
-      next: () => {
-        this.error = '';
-        this.reload();
-      },
-      error: (err) => (this.error = err?.error?.message ?? 'Delete failed')
-    });
+    this.api
+      .deleteBudget(budget.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.reload(),
+        error: (err: unknown) =>
+          this.notifications.error(describeError(err, 'Could not delete the budget'))
+      });
   }
 
   cancelEdit(): void {
-    this.editingId = null;
+    this.editing.set(null);
     this.form.patchValue({ amount: 100, categoryId: '' });
   }
 }

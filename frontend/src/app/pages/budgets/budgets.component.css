@@ -11,12 +11,12 @@ h2 {
 
 header p,
 .muted {
-  color: #5c6b73;
+  color: var(--muted);
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(38, 70, 83, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
   border-radius: 16px;
   padding: 1rem;
   display: grid;
@@ -41,34 +41,34 @@ select,
 button {
   font: inherit;
   border-radius: 10px;
-  border: 1px solid #d5dde1;
+  border: 1px solid var(--line);
   padding: 0.55rem 0.7rem;
 }
 
 button {
-  background: #264653;
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   border: 0;
   cursor: pointer;
 }
 
 button.ghost {
   background: transparent;
-  color: #264653;
-  border: 1px solid #d5dde1;
+  color: var(--heading);
+  border: 1px solid var(--line);
 }
 
 button.danger {
-/* Darkened from the original brand tone: white text on it measured
+  /* Darkened from the original brand tone: white text on it measured
    3.3:1, under the 4.5:1 WCAG AA needs. Same hue, 5.0:1 now. */
-  background: #b1543d;
+  background: var(--danger-bg);
 }
 
 .list article {
   display: grid;
   gap: 0.5rem;
   padding: 0.75rem 0;
-  border-bottom: 1px solid #e7ecee;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .meta {
@@ -79,24 +79,24 @@ button.danger {
 
 .bar {
   height: 0.55rem;
-  background: #e7ecee;
+  background: var(--line-soft);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .fill {
   height: 100%;
-  background: #2a9d8f;
+  background: var(--accent-bright);
 }
 
 .over .fill {
-  background: #e76f51;
+  background: var(--warn-fill);
 }
 
 .warn {
-  color: #b23a28;
+  color: var(--danger);
 }
 
 .error {
-  color: #b23a28;
+  color: var(--danger);
 }

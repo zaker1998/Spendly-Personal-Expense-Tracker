@@ -6,33 +6,50 @@
     </div>
   </header>
 
-  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
-
   <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
-    <h2>{{ editingId ? 'Edit category' : 'New category' }}</h2>
+    <h2>{{ editing() ? 'Edit category' : 'New category' }}</h2>
     <div class="row">
       <label class="visually-hidden" for="category-name">Name</label>
       <input id="category-name" type="text" formControlName="name" placeholder="Name" />
       <label class="visually-hidden" for="category-color">Colour</label>
       <input id="category-color" type="color" formControlName="color" />
-      <button type="submit" [disabled]="saving">{{ saving ? 'Saving…' : editingId ? 'Update' : 'Add' }}</button>
-      <button type="button" class="ghost" *ngIf="editingId" (click)="cancelEdit()">Cancel</button>
+      <button type="submit" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : editing() ? 'Update' : 'Add' }}
+      </button>
+      @if (editing()) {
+        <button type="button" class="ghost" (click)="cancelEdit()">Cancel</button>
+      }
     </div>
   </form>
 
   <div class="panel list">
-    <article *ngFor="let c of categories">
-      <div>
-        <span class="dot" aria-hidden="true" [style.background]="c.color || '#999'"></span>
-        <strong>{{ c.name }}</strong>
-      </div>
-      <div class="actions">
-        <button type="button" class="ghost" [attr.aria-label]="'Edit ' + c.name" (click)="edit(c)">Edit</button>
-        <button type="button" class="danger" [attr.aria-label]="'Delete ' + c.name" (click)="remove(c)">
-          Delete
-        </button>
-      </div>
-    </article>
-    <p class="muted" role="status" *ngIf="!categories.length">No categories yet.</p>
+    @for (c of categories(); track c.id) {
+      <article>
+        <div>
+          <span class="dot" aria-hidden="true" [style.background]="c.color || '#999'"></span>
+          <strong>{{ c.name }}</strong>
+        </div>
+        <div class="actions">
+          <button
+            type="button"
+            class="ghost"
+            [attr.aria-label]="'Edit ' + c.name"
+            (click)="edit(c)"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            class="danger"
+            [attr.aria-label]="'Delete ' + c.name"
+            (click)="remove(c)"
+          >
+            Delete
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <p class="muted" role="status">No categories yet.</p>
+    }
   </div>
 </section>

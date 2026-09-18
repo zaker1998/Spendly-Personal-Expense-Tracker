@@ -11,76 +11,96 @@
   </header>
 
   <form class="period" [formGroup]="period" (ngSubmit)="reload()" aria-label="Reporting period">
-    <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">‹</button>
+    <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">
+      ‹
+    </button>
     <select formControlName="month" (change)="reload()" aria-label="Month">
-      <option *ngFor="let m of months; let i = index" [value]="i + 1">{{ m }}</option>
+      @for (m of months; track m; let i = $index) {
+        <option [value]="i + 1">{{ m }}</option>
+      }
     </select>
     <label class="visually-hidden" for="period-year">Year</label>
     <input id="period-year" type="number" formControlName="year" (change)="reload()" />
     <button type="button" class="ghost" (click)="shiftMonth(1)" aria-label="Next month">›</button>
   </form>
 
-  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
-  <p class="muted" role="status" *ngIf="loading">Loading dashboard…</p>
-
-  <ng-container *ngIf="!loading && summary">
+  @if (loading()) {
+    <p class="muted" role="status">Loading dashboard…</p>
+  }
+  <!-- A separate block, not "@else if (...; as s)": the alias on an else-if
+       branch only exists from Angular 20. -->
+  @if (!loading() && summary(); as s) {
     <div class="hero-stat">
       <span>{{ monthLabel() }}</span>
-      <strong>{{ summary.totalAmount | currency: summary.currency }}</strong>
+      <strong>{{ s.totalAmount | currency: s.currency }}</strong>
     </div>
 
     <div class="grid">
       <article>
         <h2>By category</h2>
-        <div class="chart" *ngIf="summary.byCategory.length; else emptyCats">
-          <div class="chart-row" *ngFor="let row of summary.byCategory">
-            <div class="chart-label">
-              <span>{{ row.categoryName }}</span>
-              <strong>{{ row.total | currency: summary.currency }}</strong>
-            </div>
-            <!-- The category and its total are already read out by the label
-                 above; the bar is the same figure drawn twice. -->
-            <div class="chart-bar" aria-hidden="true">
-              <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
-            </div>
+        @if (s.byCategory.length) {
+          <div class="chart">
+            @for (row of s.byCategory; track row.categoryId) {
+              <div class="chart-row">
+                <div class="chart-label">
+                  <span>{{ row.categoryName }}</span>
+                  <strong>{{ row.total | currency: s.currency }}</strong>
+                </div>
+                <!-- The category and its total are already read out by the label
+                     above; the bar is the same figure drawn twice. -->
+                <div class="chart-bar" aria-hidden="true">
+                  <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
+                </div>
+              </div>
+            }
           </div>
-        </div>
-        <ng-template #emptyCats>
+        } @else {
           <p class="empty">No spending in this month yet.</p>
-        </ng-template>
+        }
       </article>
 
       <article>
         <h2>Budgets</h2>
-        <ul *ngIf="budgets.length; else emptyBudgets">
-          <li *ngFor="let b of budgets" [class.over]="b.overBudget">
-            <div>
-              <strong>{{ b.categoryName }}</strong>
-              <small>{{ b.spentAmount | currency: b.currency }} / {{ b.limitAmount | currency: b.currency }}</small>
-            </div>
-            <span>{{ b.percentUsed }}%</span>
-          </li>
-        </ul>
-        <ng-template #emptyBudgets>
+        @if (budgets().length) {
+          <ul>
+            @for (b of budgets(); track b.id) {
+              <li [class.over]="b.overBudget">
+                <div>
+                  <strong>{{ b.categoryName }}</strong>
+                  <small>
+                    {{ b.spentAmount | currency: b.currency }} /
+                    {{ b.limitAmount | currency: b.currency }}
+                  </small>
+                </div>
+                <span>{{ b.percentUsed }}%</span>
+              </li>
+            }
+          </ul>
+        } @else {
           <p class="empty">No budgets for this month. <a routerLink="/budgets">Set a limit</a></p>
-        </ng-template>
+        }
       </article>
 
       <article class="wide">
         <h2>Recent expenses</h2>
-        <ul *ngIf="recent.length; else emptyRecent">
-          <li *ngFor="let e of recent">
-            <div>
-              <strong>{{ e.description || e.categoryName }}</strong>
-              <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
-            </div>
-            <span>{{ e.amount | currency: e.currency }}</span>
-          </li>
-        </ul>
-        <ng-template #emptyRecent>
-          <p class="empty">Nothing recorded for this month. <a routerLink="/expenses">Add an expense</a></p>
-        </ng-template>
+        @if (recent().length) {
+          <ul>
+            @for (e of recent(); track e.id) {
+              <li>
+                <div>
+                  <strong>{{ e.description || e.categoryName }}</strong>
+                  <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
+                </div>
+                <span>{{ e.amount | currency: e.currency }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty">
+            Nothing recorded for this month. <a routerLink="/expenses">Add an expense</a>
+          </p>
+        }
       </article>
     </div>
-  </ng-container>
+  }
 </section>

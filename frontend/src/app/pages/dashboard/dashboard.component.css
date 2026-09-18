@@ -28,9 +28,9 @@ header {
 .period .ghost {
   font: inherit;
   border-radius: 10px;
-  border: 1px solid #d5dde1;
+  border: 1px solid var(--line);
   padding: 0.45rem 0.65rem;
-  background: #fff;
+  background: var(--field-bg);
 }
 
 .period .ghost {
@@ -44,7 +44,7 @@ header {
 
 .empty {
   margin: 0.8rem 0 0;
-  color: #5c6b73;
+  color: var(--muted);
 }
 
 h1,
@@ -55,14 +55,14 @@ p {
 
 header p,
 .muted {
-  color: #5c6b73;
+  color: var(--muted);
 }
 
 .btn {
-/* Darkened from the original brand tone: white text on it measured
+  /* Darkened from the original brand tone: white text on it measured
    3.3:1, under the 4.5:1 WCAG AA needs. Same hue, 5.2:1 now. */
-  background: #1f7a6e;
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-primary);
   text-decoration: none;
   padding: 0.65rem 1rem;
   border-radius: 10px;
@@ -70,13 +70,13 @@ header p,
 
 .btn.ghost {
   background: transparent;
-  color: #264653;
-  border: 1px solid #cfd8dc;
+  color: var(--heading);
+  border: 1px solid var(--line);
 }
 
 .hero-stat {
-  background: linear-gradient(135deg, #264653, #1f7a6e);
-  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--accent-strong));
+  color: var(--on-primary);
   border-radius: 18px;
   padding: 1.4rem 1.6rem;
   display: grid;
@@ -85,7 +85,7 @@ header p,
 
 .hero-stat strong {
   font-size: 2rem;
-  font-family: "Fraunces", Georgia, serif;
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 .grid {
@@ -95,8 +95,8 @@ header p,
 }
 
 article {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(38, 70, 83, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
   border-radius: 16px;
   padding: 1rem 1.1rem;
 }
@@ -121,14 +121,14 @@ article.wide {
 
 .chart-bar {
   height: 0.55rem;
-  background: #e7ecee;
+  background: var(--line-soft);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .chart-fill {
   height: 100%;
-  background: #2a9d8f;
+  background: var(--accent-bright);
 }
 
 ul {
@@ -148,20 +148,20 @@ li {
 
 li small {
   display: block;
-  color: #6b7c83;
+  color: var(--muted-2);
 }
 
 li.over strong,
 li.over span {
-  color: #b23a28;
+  color: var(--danger);
 }
 
 .error {
-  color: #b23a28;
+  color: var(--danger);
 }
 
 a {
-  color: #1f7a6e;
+  color: var(--link);
 }
 
 @media (max-width: 800px) {
