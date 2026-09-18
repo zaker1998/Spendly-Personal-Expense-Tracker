@@ -1,8 +1,16 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { NgIf } from '@angular/common';
+import { describeError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
 
 /** After this long a login is almost certainly waiting on a cold API, not on bcrypt. */
@@ -11,24 +19,26 @@ const SLOW_LOGIN_MS = 4000;
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, NgIf],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
-export class LoginComponent implements OnInit, OnDestroy {
+export class LoginComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
 
-  error = '';
-  loading = false;
+  readonly error = signal('');
+  readonly loading = signal(false);
   /** True once a login is taking long enough that the user deserves an explanation. */
-  slow = false;
+  readonly slow = signal(false);
 
   private slowTimer?: ReturnType<typeof setTimeout>;
 
-  form = this.fb.nonNullable.group({
+  readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required]]
   });
@@ -39,14 +49,12 @@ export class LoginComponent implements OnInit, OnDestroy {
     // overlaps with the time the visitor spends typing instead of being added
     // to it. Fire and forget: the response is irrelevant, the request itself is
     // what matters, and on a local `ng serve` this path simply 404s.
-    this.http.get('/actuator/health', { responseType: 'text' }).subscribe({
-      next: () => {},
-      error: () => {}
-    });
-  }
+    this.http
+      .get('/actuator/health', { responseType: 'text' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => undefined });
 
-  ngOnDestroy(): void {
-    this.clearSlowTimer();
+    this.destroyRef.onDestroy(() => this.clearSlowTimer());
   }
 
   fillDemo(): void {
@@ -58,33 +66,30 @@ export class LoginComponent implements OnInit, OnDestroy {
       this.form.markAllAsTouched();
       return;
     }
-    this.loading = true;
-    this.slow = false;
-    this.error = '';
-    this.slowTimer = setTimeout(() => (this.slow = true), SLOW_LOGIN_MS);
+    this.loading.set(true);
+    this.slow.set(false);
+    this.error.set('');
+    this.slowTimer = setTimeout(() => this.slow.set(true), SLOW_LOGIN_MS);
 
     const { email, password } = this.form.getRawValue();
-    this.auth.login(email, password).subscribe({
-      next: () => {
-        this.finish();
-        this.router.navigateByUrl('/');
-      },
-      error: (err) => {
-        this.finish();
-        // A cold instance times out at the CDN before it answers, which arrives
-        // as a status of 0 or 504 rather than anything the API said.
-        const status = err?.status;
-        this.error =
-          status === 0 || status === 504 || status === 502
-            ? 'The demo server is still starting up. Please try again in a moment.'
-            : err?.error?.message ?? 'Login failed';
-      }
-    });
+    this.auth
+      .login(email, password)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.finish();
+          void this.router.navigateByUrl('/');
+        },
+        error: (err: unknown) => {
+          this.finish();
+          this.error.set(describeError(err, 'Login failed'));
+        }
+      });
   }
 
   private finish(): void {
-    this.loading = false;
-    this.slow = false;
+    this.loading.set(false);
+    this.slow.set(false);
     this.clearSlowTimer();
   }
 

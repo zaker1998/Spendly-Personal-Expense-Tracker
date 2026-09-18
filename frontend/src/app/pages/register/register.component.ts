@@ -1,13 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { NgIf } from '@angular/common';
+import { describeError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, NgIf],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './register.component.html',
   styleUrl: './register.component.css'
 })
@@ -15,12 +17,15 @@ export class RegisterComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
-  error = '';
-  loading = false;
+  readonly error = signal('');
+  readonly loading = signal(false);
 
-  form = this.fb.nonNullable.group({
+  readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
+    // Matches the server: 8 characters minimum, and at most 72 bytes once
+    // UTF-8 encoded, which BCrypt silently truncates past.
     password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
@@ -29,18 +34,21 @@ export class RegisterComponent {
       this.form.markAllAsTouched();
       return;
     }
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
     const { email, password } = this.form.getRawValue();
-    this.auth.register(email, password).subscribe({
-      next: () => {
-        this.loading = false;
-        this.router.navigateByUrl('/');
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err?.error?.message ?? 'Registration failed';
-      }
-    });
+    this.auth
+      .register(email, password)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.loading.set(false);
+          void this.router.navigateByUrl('/');
+        },
+        error: (err: unknown) => {
+          this.loading.set(false);
+          this.error.set(describeError(err, 'Registration failed'));
+        }
+      });
   }
 }

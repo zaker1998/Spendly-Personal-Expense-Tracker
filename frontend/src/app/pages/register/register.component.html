@@ -13,9 +13,13 @@
       <input type="password" formControlName="password" autocomplete="new-password" />
     </label>
 
-    <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
 
-    <button type="submit" [disabled]="loading">{{ loading ? 'Creating…' : 'Create account' }}</button>
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Creating…' : 'Create account' }}
+    </button>
     <p class="footer">Already registered? <a routerLink="/login">Sign in</a></p>
   </form>
 </section>
