@@ -1,102 +1,78 @@
-.page {
+form.editing {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.list-head {
+  margin: 0.25rem 0 -0.25rem;
+}
+
+.cards {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   gap: 1rem;
 }
 
-header h1,
-header p,
-h2 {
-  margin: 0;
+.cards > .empty-state {
+  grid-column: 1 / -1;
 }
 
-header p,
-.muted {
-  color: var(--muted);
-}
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border-faint);
-  border-radius: 16px;
-  padding: 1rem;
+.card {
   display: grid;
   gap: 0.8rem;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
-.row,
-.actions,
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.card.over {
+  border-color: var(--danger-soft);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.spent {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.spent .muted {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.progress {
+  height: 0.6rem;
+}
+
 .footer {
   display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-}
-
-.footer {
-  justify-content: space-between;
-}
-
-input,
-select,
-button {
-  font: inherit;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  padding: 0.55rem 0.7rem;
-}
-
-button {
-  background: var(--primary);
-  color: var(--on-primary);
-  border: 0;
-  cursor: pointer;
-}
-
-button.ghost {
-  background: transparent;
-  color: var(--heading);
-  border: 1px solid var(--line);
-}
-
-button.danger {
-  /* Darkened from the original brand tone: white text on it measured
-   3.3:1, under the 4.5:1 WCAG AA needs. Same hue, 5.0:1 now. */
-  background: var(--danger-bg);
-}
-
-.list article {
-  display: grid;
   gap: 0.5rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.bar {
-  height: 0.55rem;
-  background: var(--line-soft);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.fill {
-  height: 100%;
-  background: var(--accent-bright);
-}
-
-.over .fill {
-  background: var(--warn-fill);
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 .warn {
   color: var(--danger);
-}
-
-.error {
-  color: var(--danger);
+  font-weight: 600;
 }

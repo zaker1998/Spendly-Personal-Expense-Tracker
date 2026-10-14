@@ -7,22 +7,33 @@
 >
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">Spendly</div>
+    <a class="brand" routerLink="/"><app-brand /></a>
     <nav aria-label="Main">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
-        >Dashboard</a
-      >
-      <a routerLink="/expenses" routerLinkActive="active">Expenses</a>
-      <a routerLink="/categories" routerLinkActive="active">Categories</a>
-      <a routerLink="/budgets" routerLinkActive="active">Budgets</a>
-      <a routerLink="/account" routerLinkActive="active">Account</a>
+      @for (link of links; track link.path) {
+        <a
+          [routerLink]="link.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+          ><app-icon [name]="link.icon" /><span>{{ link.label }}</span></a
+        >
+      }
       @if (auth.isAdmin()) {
-        <a routerLink="/admin" routerLinkActive="active">Admin</a>
+        <p class="nav-section" aria-hidden="true">Administration</p>
+        <a routerLink="/admin" routerLinkActive="active"
+          ><app-icon name="shield" /><span>Admin</span></a
+        >
       }
     </nav>
     <div class="user">
-      <span><span class="visually-hidden">Signed in as </span>{{ auth.session()?.email }}</span>
-      <button type="button" (click)="auth.logout()">Log out</button>
+      <span class="avatar" aria-hidden="true">{{ initial() }}</span>
+      <span class="who">
+        <span class="visually-hidden">Signed in as </span>
+        <span class="email">{{ auth.session()?.email }}</span>
+        <span class="role">{{ auth.isAdmin() ? 'Administrator' : 'Personal account' }}</span>
+      </span>
+      <button type="button" class="logout" (click)="auth.logout()">
+        <app-icon name="logout" [size]="16" /><span>Log out</span>
+      </button>
     </div>
   </aside>
   <!-- tabindex="-1" so focus can be moved here; without it the browser scrolls

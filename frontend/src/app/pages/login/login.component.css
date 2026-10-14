@@ -1,103 +1,104 @@
-.auth-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background:
-    radial-gradient(circle at 10% 10%, var(--auth-glow-1), transparent 40%),
-    radial-gradient(circle at 90% 0%, var(--auth-glow-2), transparent 35%),
-    linear-gradient(160deg, var(--auth-grad-1) 0%, var(--auth-grad-2) 50%, var(--auth-grad-3) 100%);
-}
-
+/* Shared by the register page, which points its styleUrl here. */
 .auth-card {
-  width: min(420px, 100%);
-  background: var(--surface);
-  border: 1px solid var(--border-faint);
-  border-radius: 18px;
-  padding: 2rem;
+  width: min(430px, 100%);
   display: grid;
-  gap: 0.85rem;
-  box-shadow: 0 20px 50px var(--shadow-color);
+  gap: 1rem;
+  padding: 2rem;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: card-in 0.3s ease-out;
 }
 
-.brand {
-  margin: 0;
-  font-family: 'Fraunces', Georgia, serif;
-  font-size: 1.6rem;
-  color: var(--heading);
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.card-head {
+  display: grid;
+  gap: 0.3rem;
 }
 
 h1 {
-  margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .muted,
 .footer {
-  margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
-label {
+.demo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px dashed var(--accent-bright);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.demo div {
   display: grid;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-  color: var(--heading);
+  gap: 0.1rem;
+  font-size: 0.85rem;
+  color: var(--notice-ink);
 }
 
-input {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.7rem 0.8rem;
-  font: inherit;
-  background: var(--field-bg);
+.demo strong {
+  font-size: 0.95rem;
+  color: var(--ink);
 }
 
-button {
-  margin-top: 0.4rem;
-  border: 0;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  background: var(--primary);
-  color: var(--on-primary);
-  font: inherit;
-  cursor: pointer;
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
-button:disabled {
-  opacity: 0.7;
-  cursor: wait;
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.submit {
+  width: 100%;
+  padding-block: 0.75rem;
 }
 
 .error {
-  margin: 0;
-  color: var(--danger);
   font-size: 0.9rem;
 }
 
-a {
-  color: var(--link);
-}
-
-/* Filling in the demo credentials is an action, not a destination, so it is a
-   button. This styles it back to looking like the link next to it. */
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--link);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 .notice {
-  margin: 0;
   padding: 0.6rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--notice-bg);
   color: var(--notice-ink);
   font-size: 0.88rem;
   line-height: 1.35;
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 1.4rem;
+  }
+
+  .demo {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

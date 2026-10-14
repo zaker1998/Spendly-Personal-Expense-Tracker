@@ -12,6 +12,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { describeError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
+import { AuthLayoutComponent } from '../../layout/auth-layout.component';
+import { IconComponent } from '../../shared/icon.component';
 
 /** After this long a login is almost certainly waiting on a cold API, not on bcrypt. */
 const SLOW_LOGIN_MS = 4000;
@@ -20,7 +22,7 @@ const SLOW_LOGIN_MS = 4000;
   selector: 'app-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthLayoutComponent, IconComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
@@ -59,6 +61,11 @@ export class LoginComponent implements OnInit {
 
   fillDemo(): void {
     this.form.setValue({ email: 'demo@spendly.app', password: 'Demo123!' });
+  }
+
+  tryDemo(): void {
+    this.fillDemo();
+    this.submit();
   }
 
   submit(): void {

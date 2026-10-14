@@ -7,6 +7,7 @@ import { describeError } from '../../core/api-error';
 import { ApiService } from '../../core/api.service';
 import { AdminExpense, AppUser, PageResponse } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
+import { IconComponent } from '../../shared/icon.component';
 
 const PAGE_SIZE = 20;
 
@@ -21,7 +22,7 @@ interface LoadRequest {
   selector: 'app-admin',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule],
+  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule, IconComponent],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css'
 })

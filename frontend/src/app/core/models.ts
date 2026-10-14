@@ -55,6 +55,7 @@ export interface PageResponse<T> {
 export interface CategoryTotal {
   categoryId: number;
   categoryName: string;
+  categoryColor: string | null;
   total: number;
 }
 

@@ -4,14 +4,16 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { describeError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
+import { AuthLayoutComponent } from '../../layout/auth-layout.component';
 
 @Component({
   selector: 'app-register',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthLayoutComponent],
   templateUrl: './register.component.html',
-  styleUrl: './register.component.css'
+  // Same card as the sign-in page.
+  styleUrl: '../login/login.component.css'
 })
 export class RegisterComponent {
   private readonly fb = inject(FormBuilder);

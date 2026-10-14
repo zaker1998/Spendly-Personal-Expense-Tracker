@@ -1,23 +1,32 @@
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 240px 1fr;
-  background: radial-gradient(circle at 100% 0%, var(--shell-glow), transparent 30%), var(--bg);
+  grid-template-columns: 248px minmax(0, 1fr);
+  /* The sidebar is sticky and one viewport tall; the first stop paints its
+     column all the way down when the page is longer than that. */
+  background:
+    linear-gradient(90deg, var(--sidebar-bg) 248px, transparent 248px),
+    radial-gradient(circle at 100% 0%, var(--shell-glow), transparent 35%), var(--bg);
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem 1.1rem;
+  gap: 1.75rem;
+  padding: 1.4rem 1rem 1rem;
   background: var(--sidebar-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%);
   color: var(--sidebar-ink);
 }
 
 .brand {
-  font-family: 'Fraunces', Georgia, serif;
-  font-size: 1.7rem;
-  padding: 0 0.4rem;
+  padding: 0.15rem 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius);
 }
 
 nav {
@@ -26,57 +35,178 @@ nav {
      Without this the implicit grid rows stretch to fill it and every link
      becomes a tall block. */
   align-content: start;
-  gap: 0.35rem;
+  gap: 0.2rem;
   flex: 1;
+  min-height: 0;
 }
 
 nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius);
   color: var(--sidebar-link);
   text-decoration: none;
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
+  font-weight: 500;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
-nav a.active,
 nav a:hover {
   background: var(--sidebar-hover);
   color: var(--on-primary);
 }
 
+nav a.active {
+  background: var(--sidebar-active);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+nav a.active::before {
+  content: '';
+  position: absolute;
+  left: -1rem;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #f4a261;
+}
+
+.nav-section {
+  margin: 1rem 0 0.25rem;
+  padding: 0 0.75rem;
+  color: var(--sidebar-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .user {
   display: grid;
-  gap: 0.6rem;
-  padding: 0.4rem;
-  font-size: 0.85rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem 0.65rem;
+  align-items: center;
+  padding: 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a9d8f, #1f5f6b);
+  color: #fff;
+  font-weight: 700;
+}
+
+.who {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--sidebar-ink);
+}
+
+.role {
+  font-size: 0.78rem;
   color: var(--sidebar-muted);
 }
 
-.user button {
+.logout {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--sidebar-button-border);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--on-primary);
-  border-radius: 8px;
-  padding: 0.45rem 0.6rem;
+  font-size: 0.88rem;
   cursor: pointer;
-  font: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.logout:hover {
+  background: var(--sidebar-hover);
 }
 
 .content {
-  padding: 1.75rem;
+  min-width: 0;
+  padding: 2rem clamp(1rem, 3vw, 2.5rem) 3rem;
 }
 
-@media (max-width: 800px) {
+.content:focus {
+  outline: none;
+}
+
+@media (max-width: 860px) {
+  /* minmax(0, …), not 1fr: a bare 1fr column never shrinks below its content's
+     min-content width, and the scrolling nav row made that the width of every
+     link side by side — the whole page scrolled sideways on a phone. */
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    background: radial-gradient(circle at 100% 0%, var(--shell-glow), transparent 35%), var(--bg);
   }
 
   .sidebar {
-    gap: 1rem;
+    min-width: 0;
+    position: relative;
+    height: auto;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem 0.6rem;
   }
 
   nav {
     grid-auto-flow: column;
     grid-auto-columns: max-content;
     overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  nav a.active::before,
+  .nav-section {
+    display: none;
+  }
+
+  .user {
+    position: absolute;
+    top: 0.7rem;
+    right: 1rem;
+    display: flex;
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+
+  .avatar,
+  .who {
+    display: none;
+  }
+
+  .logout {
+    padding: 0.35rem 0.6rem;
+  }
+
+  .content {
+    padding-top: 1.25rem;
   }
 }

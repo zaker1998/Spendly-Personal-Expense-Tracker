@@ -2,13 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Spendly</title>
+    <title>Spendly — personal expense tracker</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Spendly is a personal expense tracker: monthly dashboard, budgets, CSV export and AI category suggestions. Spring Boot 3 + Angular 19."
+    />
     <!-- Lets the browser paint the right background before the stylesheet
          arrives, so a dark-mode visitor does not get a white flash. -->
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111a1d" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spendly — personal expense tracker" />
+    <meta
+      property="og:description"
+      content="Monthly dashboard, budgets, CSV export and AI category suggestions. Try the demo account."
+    />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="alternate icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>
     <app-root></app-root>

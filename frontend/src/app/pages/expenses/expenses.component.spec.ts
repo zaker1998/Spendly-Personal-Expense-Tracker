@@ -218,6 +218,56 @@ describe('ExpensesComponent', () => {
     expect(component.suggestionNote()).toBe('Type a description first');
   });
 
+  it('starts with an empty amount rather than a zero to delete', () => {
+    start();
+    expect(component.form.value.amount).toBeNull();
+  });
+
+  it('confirms a save and a delete', () => {
+    start();
+    spyOn(notifications, 'success');
+    component.form.patchValue({ amount: 5, description: 'Melange' });
+
+    component.submit();
+    http.expectOne(`${API}/expenses`).flush(expense({ id: 12 }));
+    expensesRequest().flush(page([expense()]));
+
+    spyOn(window, 'confirm').and.returnValue(true);
+    component.remove(expense());
+    http.expectOne(`${API}/expenses/10`).flush(null);
+    expensesRequest().flush(page([]));
+
+    expect(notifications.success).toHaveBeenCalledWith('Expense added');
+    expect(notifications.success).toHaveBeenCalledWith('Expense deleted');
+  });
+
+  it('leaves edit mode when the expense being edited is deleted', () => {
+    const existing = expense({ id: 10 });
+    start([existing]);
+    component.edit(existing);
+    spyOn(window, 'confirm').and.returnValue(true);
+
+    component.remove(existing);
+    http.expectOne(`${API}/expenses/10`).flush(null);
+    expensesRequest().flush(page([]));
+
+    expect(component.editing()).toBeNull();
+  });
+
+  it('resets the filters and reloads from the first page', () => {
+    start();
+    component.filters.patchValue({ search: 'coffee' });
+    expect(component.hasFilters()).toBeTrue();
+
+    component.resetFilters();
+
+    const reload = expensesRequest();
+    expect(reload.request.params.has('search')).toBeFalse();
+    expect(reload.request.params.get('page')).toBe('0');
+    reload.flush(page([]));
+    expect(component.hasFilters()).toBeFalse();
+  });
+
   it('shows the pager only when there is more than one page', () => {
     start([expense()], 1);
     expect(component.showPager()).toBeFalse();
@@ -227,5 +277,6 @@ describe('ExpensesComponent', () => {
 
     expect(component.showPager()).toBeTrue();
     expect(component.hasNextPage()).toBeTrue();
+    expect(component.totalPages()).toBe(3);
   });
 });

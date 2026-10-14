@@ -1,50 +1,85 @@
 <section class="page">
-  <header>
+  <header class="page-header">
     <div>
       <h1>Account</h1>
       <p>Signed in as {{ session()?.email }}</p>
     </div>
   </header>
 
-  <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
-    <h2>Change password</h2>
-    <p class="muted">
-      Changing your password signs out every other device. Use it if you think someone else has
-      access to your account.
-    </p>
+  <div class="layout">
+    <aside class="panel profile">
+      <span class="avatar" aria-hidden="true">{{
+        (session()?.email ?? '?').charAt(0).toUpperCase()
+      }}</span>
+      <div class="profile-text">
+        <strong>{{ session()?.email }}</strong>
+        <span class="badge">{{ isAdmin() ? 'Administrator' : 'User' }}</span>
+      </div>
+      <ul class="facts">
+        <li>
+          <app-icon name="lock" [size]="16" />
+          <span>Sessions renew silently and end on logout or password change.</span>
+        </li>
+        <li>
+          <app-icon name="shield" [size]="16" />
+          <span>Repeated failed sign-ins lock the account for a few minutes.</span>
+        </li>
+      </ul>
+    </aside>
 
-    <label for="current-password">Current password</label>
-    <input
-      id="current-password"
-      type="password"
-      formControlName="currentPassword"
-      autocomplete="current-password"
-    />
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()" aria-label="Change password">
+      <div class="panel-head">
+        <h2>Change password</h2>
+      </div>
+      <p class="muted intro">
+        Changing your password signs out every other device. Use it if you think someone else has
+        access to your account.
+      </p>
 
-    <label for="new-password">New password</label>
-    <input
-      id="new-password"
-      type="password"
-      formControlName="newPassword"
-      autocomplete="new-password"
-      aria-describedby="new-password-hint"
-    />
-    <p id="new-password-hint" class="muted">At least 8 characters.</p>
+      <div class="field">
+        <label class="field-label" for="current-password">Current password</label>
+        <input
+          id="current-password"
+          class="input"
+          type="password"
+          formControlName="currentPassword"
+          autocomplete="current-password"
+        />
+      </div>
 
-    <label for="confirm-password">Repeat new password</label>
-    <input
-      id="confirm-password"
-      type="password"
-      formControlName="confirmPassword"
-      autocomplete="new-password"
-    />
+      <div class="field">
+        <label class="field-label" for="new-password">New password</label>
+        <input
+          id="new-password"
+          class="input"
+          type="password"
+          formControlName="newPassword"
+          autocomplete="new-password"
+          aria-describedby="new-password-hint"
+        />
+        <p id="new-password-hint" class="hint">At least 8 characters.</p>
+      </div>
 
-    @if (error()) {
-      <p class="error" role="alert">{{ error() }}</p>
-    }
+      <div class="field">
+        <label class="field-label" for="confirm-password">Repeat new password</label>
+        <input
+          id="confirm-password"
+          class="input"
+          type="password"
+          formControlName="confirmPassword"
+          autocomplete="new-password"
+        />
+      </div>
 
-    <button type="submit" [disabled]="saving()">
-      {{ saving() ? 'Saving…' : 'Change password' }}
-    </button>
-  </form>
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-accent" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Change password' }}
+        </button>
+      </div>
+    </form>
+  </div>
 </section>

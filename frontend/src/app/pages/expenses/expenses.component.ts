@@ -3,10 +3,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   OnInit,
   computed,
   inject,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -16,6 +18,7 @@ import { ApiService, ExpenseFilters } from '../../core/api.service';
 import { localToday } from '../../core/date-utils';
 import { Category, Expense, PageResponse } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
+import { IconComponent } from '../../shared/icon.component';
 
 const PAGE_SIZE = 10;
 
@@ -23,7 +26,7 @@ const PAGE_SIZE = 10;
   selector: 'app-expenses',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe],
+  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, IconComponent],
   templateUrl: './expenses.component.html',
   styleUrl: './expenses.component.css'
 })
@@ -41,6 +44,9 @@ export class ExpensesComponent implements OnInit {
    */
   private readonly loadRequests = new Subject<number>();
 
+  private readonly entryForm = viewChild<ElementRef<HTMLFormElement>>('entry');
+  private readonly descriptionInput = viewChild<ElementRef<HTMLInputElement>>('description');
+
   readonly expenses = signal<Expense[]>([]);
   readonly categories = signal<Category[]>([]);
   readonly totalElements = signal(0);
@@ -54,6 +60,7 @@ export class ExpensesComponent implements OnInit {
   readonly pageSize = PAGE_SIZE;
   readonly hasNextPage = computed(() => (this.page() + 1) * PAGE_SIZE < this.totalElements());
   readonly showPager = computed(() => this.totalElements() > PAGE_SIZE);
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalElements() / PAGE_SIZE)));
 
   readonly filters = this.fb.nonNullable.group({
     categoryId: [''],
@@ -64,7 +71,8 @@ export class ExpensesComponent implements OnInit {
 
   readonly form = this.fb.nonNullable.group({
     categoryId: ['', Validators.required],
-    amount: [0, [Validators.required, Validators.min(0.01)]],
+    // Empty rather than 0: a pre-filled zero has to be deleted before typing.
+    amount: this.fb.control<number | null>(null, [Validators.required, Validators.min(0.01)]),
     spentOn: [localToday(), Validators.required],
     description: ['']
   });
@@ -139,6 +147,7 @@ export class ExpensesComponent implements OnInit {
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.saving.set(false);
+        this.notifications.success(editing ? 'Expense updated' : 'Expense added');
         this.cancelEdit();
         this.load(this.page());
       },
@@ -189,6 +198,14 @@ export class ExpensesComponent implements OnInit {
       spentOn: expense.spentOn,
       description: expense.description ?? ''
     });
+    // The form sits above the list; on a long page the row being edited can be
+    // a screen away from it, and nothing would show that the click did anything.
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    this.entryForm()?.nativeElement.scrollIntoView?.({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start'
+    });
+    this.descriptionInput()?.nativeElement.focus({ preventScroll: true });
   }
 
   remove(expense: Expense): void {
@@ -200,6 +217,10 @@ export class ExpensesComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.notifications.success('Expense deleted');
+          if (this.editing()?.id === expense.id) {
+            this.cancelEdit();
+          }
           // If this was the last row on the current page, step back one page
           // instead of reloading an empty page.
           const page =
@@ -213,12 +234,23 @@ export class ExpensesComponent implements OnInit {
 
   cancelEdit(): void {
     this.editing.set(null);
+    this.suggestionNote.set('');
     this.form.patchValue({
-      amount: 0,
+      amount: null,
       description: '',
       spentOn: localToday(),
       categoryId: this.categories().length ? String(this.categories()[0].id) : ''
     });
+  }
+
+  hasFilters(): boolean {
+    const { categoryId, from, to, search } = this.filters.getRawValue();
+    return !!(categoryId || from || to || search);
+  }
+
+  resetFilters(): void {
+    this.filters.reset();
+    this.load(0);
   }
 
   exportCsv(): void {

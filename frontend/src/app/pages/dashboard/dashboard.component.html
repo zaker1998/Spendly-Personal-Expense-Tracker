@@ -1,104 +1,214 @@
 <section class="page">
-  <header>
+  <header class="page-header">
     <div>
       <h1>Dashboard</h1>
       <p>Overview for {{ monthLabel() }}</p>
     </div>
-    <div class="actions">
-      <a class="btn ghost" routerLink="/budgets">Budgets</a>
-      <a class="btn" routerLink="/expenses">Add expense</a>
+    <div class="header-actions">
+      <form class="period" [formGroup]="period" (ngSubmit)="reload()" aria-label="Reporting period">
+        <button
+          type="button"
+          class="btn btn-icon"
+          (click)="shiftMonth(-1)"
+          aria-label="Previous month"
+        >
+          <app-icon name="chevronLeft" />
+        </button>
+        <select formControlName="month" (change)="reload()" aria-label="Month">
+          @for (m of months; track m; let i = $index) {
+            <option [value]="i + 1">{{ m }}</option>
+          }
+        </select>
+        <label class="visually-hidden" for="period-year">Year</label>
+        <input id="period-year" type="number" formControlName="year" (change)="reload()" />
+        <button type="button" class="btn btn-icon" (click)="shiftMonth(1)" aria-label="Next month">
+          <app-icon name="chevronRight" />
+        </button>
+      </form>
+      <a class="btn btn-accent" routerLink="/expenses"><app-icon name="plus" />Add expense</a>
     </div>
   </header>
 
-  <form class="period" [formGroup]="period" (ngSubmit)="reload()" aria-label="Reporting period">
-    <button type="button" class="ghost" (click)="shiftMonth(-1)" aria-label="Previous month">
-      ‹
-    </button>
-    <select formControlName="month" (change)="reload()" aria-label="Month">
-      @for (m of months; track m; let i = $index) {
-        <option [value]="i + 1">{{ m }}</option>
-      }
-    </select>
-    <label class="visually-hidden" for="period-year">Year</label>
-    <input id="period-year" type="number" formControlName="year" (change)="reload()" />
-    <button type="button" class="ghost" (click)="shiftMonth(1)" aria-label="Next month">›</button>
-  </form>
-
   @if (loading()) {
-    <p class="muted" role="status">Loading dashboard…</p>
+    <p class="visually-hidden" role="status">Loading dashboard…</p>
+    <div class="skeleton hero-skeleton" aria-hidden="true"></div>
+    <div class="grid" aria-hidden="true">
+      <div class="skeleton card-skeleton"></div>
+      <div class="skeleton card-skeleton"></div>
+    </div>
   }
   <!-- A separate block, not "@else if (...; as s)": the alias on an else-if
        branch only exists from Angular 20. -->
   @if (!loading() && summary(); as s) {
-    <div class="hero-stat">
-      <span>{{ monthLabel() }}</span>
-      <strong>{{ s.totalAmount | currency: s.currency }}</strong>
+    <div class="hero">
+      <div class="hero-main">
+        <span class="hero-label">Spent in {{ monthLabel() }}</span>
+        <strong class="hero-total">{{ s.totalAmount | currency: s.currency }}</strong>
+        @if (changeVsPrevious(); as change) {
+          <span class="trend" [class.up]="change > 0">
+            <app-icon [name]="change > 0 ? 'trendingUp' : 'trendingDown'" [size]="16" />
+            {{ change > 0 ? change : -change }}% {{ change > 0 ? 'more' : 'less' }} than
+            {{ previousMonthName() }}
+          </span>
+        } @else if (changeVsPrevious() === 0) {
+          <span class="trend">Same as {{ previousMonthName() }}</span>
+        }
+      </div>
+      <dl class="hero-stats">
+        <div>
+          <dt>Transactions</dt>
+          <dd>{{ expenseCount() }}</dd>
+        </div>
+        <div>
+          <dt>Daily average</dt>
+          <dd>{{ dailyAverage() | currency: s.currency }}</dd>
+        </div>
+        @if (overallBudget(); as overall) {
+          <div>
+            <dt>{{ overall.overBudget ? 'Over budget by' : 'Budget left' }}</dt>
+            <dd>
+              {{
+                (overall.overBudget ? -overall.remainingAmount : overall.remainingAmount)
+                  | currency: overall.currency
+              }}
+            </dd>
+          </div>
+        } @else {
+          <div>
+            <dt>Categories used</dt>
+            <dd>{{ s.byCategory.length }}</dd>
+          </div>
+        }
+      </dl>
     </div>
 
     <div class="grid">
-      <article>
-        <h2>By category</h2>
+      <article class="panel">
+        <div class="panel-head">
+          <h2>By category</h2>
+          <a class="meta" routerLink="/categories">Manage</a>
+        </div>
         @if (s.byCategory.length) {
-          <div class="chart">
-            @for (row of s.byCategory; track row.categoryId) {
-              <div class="chart-row">
-                <div class="chart-label">
-                  <span>{{ row.categoryName }}</span>
-                  <strong>{{ row.total | currency: s.currency }}</strong>
-                </div>
-                <!-- The category and its total are already read out by the label
-                     above; the bar is the same figure drawn twice. -->
-                <div class="chart-bar" aria-hidden="true">
-                  <div class="chart-fill" [style.width.%]="barWidth(row.total)"></div>
-                </div>
-              </div>
-            }
+          <div class="breakdown">
+            <!-- The legend beside it reads out every figure the ring draws. -->
+            <div class="donut-wrap" aria-hidden="true">
+              <svg class="donut" viewBox="0 0 42 42" focusable="false">
+                <circle class="donut-track" cx="21" cy="21" r="15.9155" />
+                @for (slice of slices(); track slice.name) {
+                  <circle
+                    class="donut-slice"
+                    cx="21"
+                    cy="21"
+                    r="15.9155"
+                    [attr.stroke]="slice.colour"
+                    [attr.stroke-dasharray]="slice.dash"
+                    [attr.stroke-dashoffset]="slice.offset"
+                  />
+                }
+              </svg>
+              <span class="donut-centre">
+                <small>{{ s.byCategory.length }} categories</small>
+                <strong>{{ s.totalAmount | currency: s.currency : 'symbol' : '1.0-0' }}</strong>
+              </span>
+            </div>
+            <ul class="legend">
+              @for (row of s.byCategory; track row.categoryId; let i = $index) {
+                <li>
+                  <span class="dot" [style.background]="colourFor(row.categoryColor, i)"></span>
+                  <span class="legend-name">{{ row.categoryName }}</span>
+                  <span class="legend-share">{{ share(row.total) }}%</span>
+                  <strong class="money">{{ row.total | currency: s.currency }}</strong>
+                  <!-- The same figure drawn again, relative to the largest category. -->
+                  <span class="progress legend-bar" aria-hidden="true">
+                    <span
+                      [style.width.%]="barWidth(row.total)"
+                      [style.background]="colourFor(row.categoryColor, i)"
+                    ></span>
+                  </span>
+                </li>
+              }
+            </ul>
           </div>
         } @else {
-          <p class="empty">No spending in this month yet.</p>
+          <div class="empty-state">
+            <span class="empty-icon"><app-icon name="chart" /></span>
+            <strong>No spending in this month yet</strong>
+            <span>Your category breakdown appears once you add an expense.</span>
+          </div>
         }
       </article>
 
-      <article>
-        <h2>Budgets</h2>
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Budgets</h2>
+          <a class="meta" routerLink="/budgets">Edit limits</a>
+        </div>
         @if (budgets().length) {
-          <ul>
+          <ul class="budgets">
             @for (b of budgets(); track b.id) {
               <li [class.over]="b.overBudget">
-                <div>
+                <div class="budget-line">
                   <strong>{{ b.categoryName }}</strong>
-                  <small>
-                    {{ b.spentAmount | currency: b.currency }} /
-                    {{ b.limitAmount | currency: b.currency }}
-                  </small>
+                  <span class="budget-pct">{{ b.percentUsed }}%</span>
                 </div>
-                <span>{{ b.percentUsed }}%</span>
+                <span class="progress" [class]="budgetTone(b)" aria-hidden="true">
+                  <span [style.width.%]="b.percentUsed > 100 ? 100 : b.percentUsed"></span>
+                </span>
+                <small class="money">
+                  {{ b.spentAmount | currency: b.currency }} of
+                  {{ b.limitAmount | currency: b.currency }}
+                  @if (b.overBudget) {
+                    · <span class="over-note">over budget</span>
+                  }
+                </small>
               </li>
             }
           </ul>
         } @else {
-          <p class="empty">No budgets for this month. <a routerLink="/budgets">Set a limit</a></p>
+          <div class="empty-state">
+            <span class="empty-icon"><app-icon name="target" /></span>
+            <strong>No budgets for this month</strong>
+            <a routerLink="/budgets">Set a monthly limit</a>
+          </div>
         }
       </article>
 
-      <article class="wide">
-        <h2>Recent expenses</h2>
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Recent expenses</h2>
+          <a class="meta view-all" routerLink="/expenses"
+            >View all <app-icon name="arrowRight" [size]="14"
+          /></a>
+        </div>
         @if (recent().length) {
-          <ul>
+          <ul class="recent">
             @for (e of recent(); track e.id) {
               <li>
-                <div>
+                <span
+                  class="recent-icon"
+                  aria-hidden="true"
+                  [style.--c]="e.categoryColor || '#8d99ae'"
+                  ><span class="dot"></span
+                ></span>
+                <div class="recent-text">
                   <strong>{{ e.description || e.categoryName }}</strong>
                   <small>{{ e.spentOn | date: 'mediumDate' }} · {{ e.categoryName }}</small>
                 </div>
-                <span>{{ e.amount | currency: e.currency }}</span>
+                <span class="money recent-amount">{{ e.amount | currency: e.currency }}</span>
               </li>
             }
           </ul>
+          @if (expenseCount() > recent().length) {
+            <p class="more muted">
+              and {{ expenseCount() - recent().length | number }} more this month
+            </p>
+          }
         } @else {
-          <p class="empty">
-            Nothing recorded for this month. <a routerLink="/expenses">Add an expense</a>
-          </p>
+          <div class="empty-state">
+            <span class="empty-icon"><app-icon name="receipt" /></span>
+            <strong>Nothing recorded for this month</strong>
+            <a routerLink="/expenses">Add an expense</a>
+          </div>
         }
       </article>
     </div>

@@ -4,6 +4,7 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@
 import { describeError } from '../../core/api-error';
 import { AuthService } from '../../core/auth.service';
 import { NotificationService } from '../../core/notification.service';
+import { IconComponent } from '../../shared/icon.component';
 
 /**
  * Changing the password is the only way a user can end a session they think
@@ -14,7 +15,7 @@ import { NotificationService } from '../../core/notification.service';
   selector: 'app-account',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, IconComponent],
   templateUrl: './account.component.html',
   styleUrl: './account.component.css'
 })
@@ -25,6 +26,7 @@ export class AccountComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly session = this.auth.session;
+  readonly isAdmin = this.auth.isAdmin;
   readonly saving = signal(false);
   readonly error = signal('');
 

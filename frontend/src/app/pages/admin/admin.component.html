@@ -1,5 +1,5 @@
 <section class="page">
-  <header>
+  <header class="page-header">
     <div>
       <h1>Admin</h1>
       <p>Users and expenses across the system</p>
@@ -16,7 +16,7 @@
       [class.active]="tab() === 'users'"
       (click)="showUsers()"
     >
-      Users
+      <app-icon name="user" [size]="16" />Users
     </button>
     <button
       type="button"
@@ -24,49 +24,52 @@
       [class.active]="tab() === 'expenses'"
       (click)="showExpenses()"
     >
-      All expenses
+      <app-icon name="receipt" [size]="16" />All expenses
     </button>
   </div>
 
   @if (loading()) {
-    <p class="muted" role="status">Loading…</p>
+    <p class="visually-hidden" role="status">Loading…</p>
+    <div class="skeleton table-skeleton" aria-hidden="true"></div>
   } @else if (tab() === 'users') {
     <div class="panel">
       @if (users().length) {
-        <table>
-          <caption class="visually-hidden">
-            Registered users
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">ID</th>
-              <th scope="col">Email</th>
-              <th scope="col">Role</th>
-              <th scope="col">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (u of users(); track u.id) {
+        <div class="table-wrap">
+          <table class="data-table">
+            <caption class="visually-hidden">
+              Registered users
+            </caption>
+            <thead>
               <tr>
-                <td>{{ u.id }}</td>
-                <td>{{ u.email }}</td>
-                <td>
-                  <span class="role">{{ u.role }}</span>
-                </td>
-                <td>{{ u.createdAt | date: 'mediumDate' }}</td>
+                <th scope="col">ID</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">Created</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (u of users(); track u.id) {
+                <tr>
+                  <td>{{ u.id }}</td>
+                  <td>{{ u.email }}</td>
+                  <td>
+                    <span class="badge" [class.admin]="u.role === 'ADMIN'">{{ u.role }}</span>
+                  </td>
+                  <td class="date">{{ u.createdAt | date: 'mediumDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       } @else {
-        <p class="muted" role="status">No users found.</p>
+        <p class="muted empty" role="status">No users found.</p>
       }
 
       @if (totalPages() > 1) {
         <nav class="pager" aria-label="User pages">
           <button
             type="button"
-            class="ghost"
+            class="btn btn-ghost btn-sm"
             [disabled]="page() === 0"
             (click)="goToPage(page() - 1)"
           >
@@ -75,7 +78,7 @@
           <span aria-live="polite">Page {{ page() + 1 }} of {{ totalPages() }}</span>
           <button
             type="button"
-            class="ghost"
+            class="btn btn-ghost btn-sm"
             [disabled]="page() + 1 >= totalPages()"
             (click)="goToPage(page() + 1)"
           >
@@ -93,47 +96,51 @@
         aria-label="Filter all expenses"
       >
         <label class="visually-hidden" for="admin-from">From date</label>
-        <input id="admin-from" type="date" formControlName="from" />
+        <input id="admin-from" class="input" type="date" formControlName="from" />
         <label class="visually-hidden" for="admin-to">To date</label>
-        <input id="admin-to" type="date" formControlName="to" />
-        <button type="submit">Filter</button>
+        <input id="admin-to" class="input" type="date" formControlName="to" />
+        <button type="submit" class="btn"><app-icon name="filter" />Filter</button>
       </form>
 
       @if (expenses().length) {
-        <table>
-          <caption class="visually-hidden">
-            Expenses across every user
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">User</th>
-              <th scope="col">Category</th>
-              <th scope="col">Description</th>
-              <th scope="col">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (e of expenses(); track e.id) {
+        <div class="table-wrap">
+          <table class="data-table">
+            <caption class="visually-hidden">
+              Expenses across every user
+            </caption>
+            <thead>
               <tr>
-                <td>{{ e.spentOn | date: 'mediumDate' }}</td>
-                <td>{{ e.userEmail }}</td>
-                <td>{{ e.categoryName }}</td>
-                <td>{{ e.description || '—' }}</td>
-                <td>{{ e.amount | currency: e.currency }}</td>
+                <th scope="col">Date</th>
+                <th scope="col">User</th>
+                <th scope="col">Category</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="num">Amount</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (e of expenses(); track e.id) {
+                <tr>
+                  <td class="date">{{ e.spentOn | date: 'mediumDate' }}</td>
+                  <td>{{ e.userEmail }}</td>
+                  <td>
+                    <span class="chip">{{ e.categoryName }}</span>
+                  </td>
+                  <td>{{ e.description || '—' }}</td>
+                  <td class="num">{{ e.amount | currency: e.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       } @else {
-        <p class="muted" role="status">No expenses match these filters.</p>
+        <p class="muted empty" role="status">No expenses match these filters.</p>
       }
 
       @if (totalPages() > 1) {
         <nav class="pager" aria-label="Expense pages">
           <button
             type="button"
-            class="ghost"
+            class="btn btn-ghost btn-sm"
             [disabled]="page() === 0"
             (click)="goToPage(page() - 1)"
           >
@@ -144,7 +151,7 @@
           </span>
           <button
             type="button"
-            class="ghost"
+            class="btn btn-ghost btn-sm"
             [disabled]="page() + 1 >= totalPages()"
             (click)="goToPage(page() + 1)"
           >

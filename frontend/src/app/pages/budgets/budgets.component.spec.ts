@@ -48,6 +48,27 @@ describe('BudgetsComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('€750.00 left');
   });
 
+  it('labels each budget by how close it is to the limit', () => {
+    expect(component.status(overall)).toEqual({ label: 'On track', tone: '' });
+    expect(component.status({ ...overall, percentUsed: 92 })).toEqual({
+      label: 'Almost there',
+      tone: 'caution'
+    });
+    expect(component.status({ ...overall, percentUsed: 120, overBudget: true })).toEqual({
+      label: 'Over budget',
+      tone: 'over'
+    });
+  });
+
+  it('says how far over an overspent budget is', () => {
+    component.budgets.set([
+      { ...overall, spentAmount: 1200, remainingAmount: -200, percentUsed: 120, overBudget: true }
+    ]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('€200.00 over');
+  });
+
   it('sends an empty category as an overall budget', () => {
     component.form.setValue({ categoryId: '', amount: 500, year: 2026, month: 4 });
 

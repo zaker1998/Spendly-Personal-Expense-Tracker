@@ -1,88 +1,139 @@
 <section class="page">
-  <header>
+  <header class="page-header">
     <div>
       <h1>Budgets</h1>
-      <p>Set monthly limits and track progress</p>
+      <p>Monthly limits, overall or per category, and how close you are to them</p>
     </div>
   </header>
 
-  <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
-    <h2>{{ editing() ? 'Edit budget' : 'New budget' }}</h2>
-    <div class="row">
-      <label class="visually-hidden" for="budget-category">Category</label>
-      <select id="budget-category" formControlName="categoryId">
-        <option value="">Overall</option>
-        @for (c of categories(); track c.id) {
-          <option [value]="c.id">{{ c.name }}</option>
+  <form
+    class="panel"
+    [class.editing]="editing()"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    [attr.aria-label]="editing() ? 'Edit budget' : 'New budget'"
+  >
+    <div class="panel-head">
+      <h2>{{ editing() ? 'Edit budget' : 'New budget' }}</h2>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label" for="budget-month">Month</label>
+        <select id="budget-month" class="input" formControlName="month" (change)="reload()">
+          @for (m of months; track m; let i = $index) {
+            <option [ngValue]="i + 1">{{ m }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="budget-year">Year</label>
+        <input
+          id="budget-year"
+          class="input"
+          type="number"
+          formControlName="year"
+          (change)="reload()"
+        />
+      </div>
+      <div class="field">
+        <label class="field-label" for="budget-category">Applies to</label>
+        <select id="budget-category" class="input" formControlName="categoryId">
+          <option value="">Overall</option>
+          @for (c of categories(); track c.id) {
+            <option [value]="c.id">{{ c.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="budget-amount">Monthly limit in euro</label>
+        <div class="affix">
+          <span class="affix-start" aria-hidden="true">€</span>
+          <input
+            id="budget-amount"
+            class="input money"
+            type="number"
+            inputmode="decimal"
+            step="0.01"
+            formControlName="amount"
+            placeholder="Limit"
+          />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-accent" [disabled]="saving()">
+          <app-icon [name]="editing() ? 'check' : 'plus'" />
+          {{ saving() ? 'Saving…' : editing() ? 'Update' : 'Add' }}
+        </button>
+        @if (editing()) {
+          <button type="button" class="btn btn-ghost" (click)="cancelEdit()">Cancel</button>
         }
-      </select>
-      <label class="visually-hidden" for="budget-amount">Monthly limit in euro</label>
-      <input
-        id="budget-amount"
-        type="number"
-        step="0.01"
-        formControlName="amount"
-        placeholder="Limit"
-      />
-      <label class="visually-hidden" for="budget-year">Year</label>
-      <input id="budget-year" type="number" formControlName="year" />
-      <label class="visually-hidden" for="budget-month">Month, 1 to 12</label>
-      <input id="budget-month" type="number" min="1" max="12" formControlName="month" />
-      <button type="submit" [disabled]="saving()">
-        {{ saving() ? 'Saving…' : editing() ? 'Update' : 'Add' }}
-      </button>
-      @if (editing()) {
-        <button type="button" class="ghost" (click)="cancelEdit()">Cancel</button>
-      }
-      <button type="button" class="ghost" (click)="reload()">Reload period</button>
+      </div>
     </div>
   </form>
 
-  <div class="panel list">
+  <div class="panel-head list-head">
+    <h2>{{ periodLabel() }}</h2>
+    <span class="meta"
+      >{{ budgets().length }} {{ budgets().length === 1 ? 'budget' : 'budgets' }}</span
+    >
+  </div>
+
+  <div class="cards">
     @for (b of budgets(); track b.id) {
-      <article [class.over]="b.overBudget">
-        <div class="meta">
-          <strong>{{ b.categoryName }}</strong>
-          <span
-            >{{ b.spentAmount | currency: b.currency }} /
-            {{ b.limitAmount | currency: b.currency }}</span
-          >
+      <article class="panel card" [class.over]="b.overBudget">
+        <div class="card-top">
+          <div>
+            <h3>{{ b.categoryName }}</h3>
+            <span class="money spent"
+              >{{ b.spentAmount | currency: b.currency }}
+              <span class="muted">of {{ b.limitAmount | currency: b.currency }}</span></span
+            >
+          </div>
+          <span class="badge" [class.danger]="b.overBudget">{{ status(b).label }}</span>
         </div>
         <!-- Decorative: the figure and the over-budget state are both spelled out
            in the footer below, so a progressbar role here would only make a
            screen reader read the same number twice. -->
-        <div class="bar" aria-hidden="true">
-          <div class="fill" [style.width.%]="b.percentUsed > 100 ? 100 : b.percentUsed"></div>
-        </div>
+        <span class="progress" [class]="status(b).tone" aria-hidden="true">
+          <span [style.width.%]="b.percentUsed > 100 ? 100 : b.percentUsed"></span>
+        </span>
         <div class="footer">
-          <span [class.warn]="b.overBudget">
+          <span class="money" [class.warn]="b.overBudget">
             {{
-              b.overBudget ? 'Over budget' : (b.remainingAmount | currency: b.currency) + ' left'
+              b.overBudget
+                ? (-b.remainingAmount | currency: b.currency) + ' over'
+                : (b.remainingAmount | currency: b.currency) + ' left'
             }}
             ({{ b.percentUsed }}%)
           </span>
-          <div class="actions">
+          <div class="row-actions">
             <button
               type="button"
-              class="ghost"
+              class="btn btn-icon"
+              title="Edit"
               [attr.aria-label]="'Edit the ' + b.categoryName + ' budget'"
               (click)="edit(b)"
             >
-              Edit
+              <app-icon name="edit" />
             </button>
             <button
               type="button"
-              class="danger"
+              class="btn btn-icon danger"
+              title="Delete"
               [attr.aria-label]="'Delete the ' + b.categoryName + ' budget'"
               (click)="remove(b)"
             >
-              Delete
+              <app-icon name="trash" />
             </button>
           </div>
         </div>
       </article>
     } @empty {
-      <p class="muted" role="status">No budgets for this month yet.</p>
+      <div class="panel empty-state" role="status">
+        <span class="empty-icon"><app-icon name="target" /></span>
+        <strong>No budgets for this month yet.</strong>
+        <span>Set an overall limit, or one per category, with the form above.</span>
+      </div>
     }
   </div>
 </section>

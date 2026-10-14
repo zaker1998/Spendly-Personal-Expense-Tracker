@@ -31,6 +31,7 @@
               "@fontsource/source-sans-3/latin-400.css",
               "@fontsource/source-sans-3/latin-500.css",
               "@fontsource/source-sans-3/latin-600.css",
+              "@fontsource/source-sans-3/latin-700.css",
               "@fontsource/fraunces/latin-600.css",
               "@fontsource/fraunces/latin-700.css",
               "src/styles.css"
@@ -47,8 +48,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "6kB",
+                  "maximumError": "10kB"
                 }
               ],
               "optimization": {
@@ -105,6 +106,7 @@
               "@fontsource/source-sans-3/latin-400.css",
               "@fontsource/source-sans-3/latin-500.css",
               "@fontsource/source-sans-3/latin-600.css",
+              "@fontsource/source-sans-3/latin-700.css",
               "@fontsource/fraunces/latin-600.css",
               "@fontsource/fraunces/latin-700.css",
               "src/styles.css"

@@ -42,6 +42,23 @@ describe('LoginComponent', () => {
     });
   });
 
+  it('signs straight in to the demo account in one click', () => {
+    component.tryDemo();
+
+    const login = http.expectOne(`${API}/auth/login`);
+    expect(login.request.body).toEqual({ email: 'demo@spendly.app', password: 'Demo123!' });
+    login.flush({
+      accessToken: 't',
+      tokenType: 'Bearer',
+      expiresInSeconds: 900,
+      userId: 1,
+      email: 'demo@spendly.app',
+      role: 'USER'
+    });
+
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/');
+  });
+
   it('signs in and goes to the dashboard', () => {
     component.fillDemo();
 

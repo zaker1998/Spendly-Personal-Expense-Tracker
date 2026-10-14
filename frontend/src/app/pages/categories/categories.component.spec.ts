@@ -77,6 +77,14 @@ describe('CategoriesComponent', () => {
     );
   });
 
+  it('picks a suggested colour in one click', () => {
+    component.pickColour('#8E5572');
+
+    expect(component.form.controls.color.value).toBe('#8E5572');
+    expect(component.isPicked('#8e5572')).toBeTrue();
+    expect(component.isPicked('#2A9D8F')).toBeFalse();
+  });
+
   it('refuses an empty name without calling the server', () => {
     component.form.setValue({ name: '', color: '#112233' });
 

@@ -12,6 +12,7 @@ import { describeError } from '../../core/api-error';
 import { ApiService } from '../../core/api.service';
 import { Category } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
+import { IconComponent } from '../../shared/icon.component';
 
 const DEFAULT_COLOUR = '#2A9D8F';
 
@@ -19,7 +20,7 @@ const DEFAULT_COLOUR = '#2A9D8F';
   selector: 'app-categories',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, IconComponent],
   templateUrl: './categories.component.html',
   styleUrl: './categories.component.css'
 })
@@ -32,6 +33,18 @@ export class CategoriesComponent implements OnInit {
   readonly categories = signal<Category[]>([]);
   readonly saving = signal(false);
   readonly editing = signal<Category | null>(null);
+
+  /** One click for a colour that already sits well with the rest of the app. */
+  readonly presets = [
+    { name: 'Teal', value: '#2A9D8F' },
+    { name: 'Coral', value: '#E76F51' },
+    { name: 'Saffron', value: '#E9C46A' },
+    { name: 'Sandy', value: '#F4A261' },
+    { name: 'Deep sea', value: '#264653' },
+    { name: 'Plum', value: '#8E5572' },
+    { name: 'Sky', value: '#4A90C2' },
+    { name: 'Slate', value: '#6C757D' }
+  ];
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
@@ -72,6 +85,7 @@ export class CategoriesComponent implements OnInit {
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.saving.set(false);
+        this.notifications.success(editing ? 'Category updated' : 'Category added');
         this.cancelEdit();
         this.reload();
       },
@@ -80,6 +94,14 @@ export class CategoriesComponent implements OnInit {
         this.notifications.error(describeError(err, 'Could not save the category'));
       }
     });
+  }
+
+  pickColour(value: string): void {
+    this.form.patchValue({ color: value });
+  }
+
+  isPicked(value: string): boolean {
+    return this.form.controls.color.value.toLowerCase() === value.toLowerCase();
   }
 
   edit(category: Category): void {

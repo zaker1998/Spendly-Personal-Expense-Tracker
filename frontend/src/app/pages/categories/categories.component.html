@@ -1,55 +1,111 @@
 <section class="page">
-  <header>
+  <header class="page-header">
     <div>
       <h1>Categories</h1>
-      <p>Organize spending into custom labels</p>
+      <p>Organise spending into your own labels and colours</p>
     </div>
   </header>
 
-  <form class="panel" [formGroup]="form" (ngSubmit)="submit()">
-    <h2>{{ editing() ? 'Edit category' : 'New category' }}</h2>
-    <div class="row">
-      <label class="visually-hidden" for="category-name">Name</label>
-      <input id="category-name" type="text" formControlName="name" placeholder="Name" />
-      <label class="visually-hidden" for="category-color">Colour</label>
-      <input id="category-color" type="color" formControlName="color" />
-      <button type="submit" [disabled]="saving()">
-        {{ saving() ? 'Saving…' : editing() ? 'Update' : 'Add' }}
-      </button>
-      @if (editing()) {
-        <button type="button" class="ghost" (click)="cancelEdit()">Cancel</button>
-      }
-    </div>
-  </form>
+  <div class="layout">
+    <form
+      class="panel"
+      [class.editing]="editing()"
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      [attr.aria-label]="editing() ? 'Edit category' : 'New category'"
+    >
+      <div class="panel-head">
+        <h2>{{ editing() ? 'Edit category' : 'New category' }}</h2>
+      </div>
+      <div class="stack">
+        <div class="field">
+          <label class="field-label" for="category-name">Name</label>
+          <input
+            id="category-name"
+            class="input"
+            type="text"
+            formControlName="name"
+            placeholder="e.g. Groceries"
+          />
+        </div>
+        <div class="field">
+          <label class="field-label" for="category-color">Colour</label>
+          <div class="colour-row">
+            <input id="category-color" class="colour" type="color" formControlName="color" />
+            <div class="swatches" role="group" aria-label="Suggested colours">
+              @for (p of presets; track p.value) {
+                <button
+                  type="button"
+                  class="swatch"
+                  [style.background]="p.value"
+                  [attr.aria-label]="p.name"
+                  [attr.aria-pressed]="isPicked(p.value)"
+                  [title]="p.name"
+                  (click)="pickColour(p.value)"
+                ></button>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="preview" aria-hidden="true">
+          <span class="chip"
+            ><span class="dot" [style.background]="form.controls.color.value"></span
+            >{{ form.controls.name.value || 'Preview' }}</span
+          >
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-accent" [disabled]="saving()">
+            <app-icon [name]="editing() ? 'check' : 'plus'" />
+            {{ saving() ? 'Saving…' : editing() ? 'Update' : 'Add' }}
+          </button>
+          @if (editing()) {
+            <button type="button" class="btn btn-ghost" (click)="cancelEdit()">Cancel</button>
+          }
+        </div>
+      </div>
+    </form>
 
-  <div class="panel list">
-    @for (c of categories(); track c.id) {
-      <article>
-        <div>
-          <span class="dot" aria-hidden="true" [style.background]="c.color || '#999'"></span>
-          <strong>{{ c.name }}</strong>
-        </div>
-        <div class="actions">
-          <button
-            type="button"
-            class="ghost"
-            [attr.aria-label]="'Edit ' + c.name"
-            (click)="edit(c)"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            class="danger"
-            [attr.aria-label]="'Delete ' + c.name"
-            (click)="remove(c)"
-          >
-            Delete
-          </button>
-        </div>
-      </article>
-    } @empty {
-      <p class="muted" role="status">No categories yet.</p>
-    }
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Your categories</h2>
+        <span class="meta">{{ categories().length }} total</span>
+      </div>
+      <ul class="tiles">
+        @for (c of categories(); track c.id) {
+          <li class="tile" [class.is-editing]="editing()?.id === c.id">
+            <span class="tile-mark" aria-hidden="true" [style.--c]="c.color || '#999'">
+              <span class="dot"></span>
+            </span>
+            <strong>{{ c.name }}</strong>
+            <span class="row-actions">
+              <button
+                type="button"
+                class="btn btn-icon"
+                title="Edit"
+                [attr.aria-label]="'Edit ' + c.name"
+                (click)="edit(c)"
+              >
+                <app-icon name="edit" />
+              </button>
+              <button
+                type="button"
+                class="btn btn-icon danger"
+                title="Delete"
+                [attr.aria-label]="'Delete ' + c.name"
+                (click)="remove(c)"
+              >
+                <app-icon name="trash" />
+              </button>
+            </span>
+          </li>
+        } @empty {
+          <li class="empty-state" role="status">
+            <span class="empty-icon"><app-icon name="tag" /></span>
+            <strong>No categories yet</strong>
+            <span>Add one on the left to start sorting your spending.</span>
+          </li>
+        }
+      </ul>
+    </div>
   </div>
 </section>

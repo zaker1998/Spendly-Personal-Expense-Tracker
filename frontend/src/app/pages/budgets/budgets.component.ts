@@ -13,12 +13,13 @@ import { describeError } from '../../core/api-error';
 import { ApiService } from '../../core/api.service';
 import { Budget, Category } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
+import { IconComponent } from '../../shared/icon.component';
 
 @Component({
   selector: 'app-budgets',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, CurrencyPipe],
+  imports: [ReactiveFormsModule, CurrencyPipe, IconComponent],
   templateUrl: './budgets.component.html',
   styleUrl: './budgets.component.css'
 })
@@ -34,6 +35,12 @@ export class BudgetsComponent implements OnInit {
   readonly categories = signal<Category[]>([]);
   readonly saving = signal(false);
   readonly editing = signal<Budget | null>(null);
+
+  // prettier-ignore
+  readonly months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   readonly form = this.fb.nonNullable.group({
     categoryId: [''],
@@ -89,6 +96,7 @@ export class BudgetsComponent implements OnInit {
     request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.saving.set(false);
+        this.notifications.success(editing ? 'Budget updated' : 'Budget added');
         this.cancelEdit();
         this.reload();
       },
@@ -97,6 +105,22 @@ export class BudgetsComponent implements OnInit {
         this.notifications.error(describeError(err, 'Could not save the budget'));
       }
     });
+  }
+
+  /** Status shown on each card, and the colour of its bar. */
+  status(budget: Budget): { label: string; tone: 'over' | 'caution' | '' } {
+    if (budget.overBudget) {
+      return { label: 'Over budget', tone: 'over' };
+    }
+    if (budget.percentUsed >= 85) {
+      return { label: 'Almost there', tone: 'caution' };
+    }
+    return { label: 'On track', tone: '' };
+  }
+
+  periodLabel(): string {
+    const { year, month } = this.form.getRawValue();
+    return `${this.months[Number(month) - 1] ?? ''} ${year}`;
   }
 
   edit(budget: Budget): void {

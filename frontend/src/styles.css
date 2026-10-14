@@ -1,9 +1,9 @@
 /* Colour tokens.
  *
  * Every colour in the app resolves through these, so a theme is one block of
- * overrides rather than a hunt through component stylesheets. The light values
- * are the palette the app always had; component CSS used to carry them as
- * literals, which is what made a dark theme impossible to add.
+ * overrides rather than a hunt through component stylesheets. Text and button
+ * fills were each checked against WCAG AA (4.5:1) in both themes; the axe-core
+ * suite in e2e/ keeps them there.
  */
 :root {
   color-scheme: light;
@@ -15,6 +15,8 @@
   --heading: #264653;
 
   --surface: rgba(255, 255, 255, 0.85);
+  --surface-solid: #fff;
+  --surface-hover: rgba(38, 70, 83, 0.045);
   --field-bg: #fff;
   --line: #d5dde1;
   --line-soft: #e7ecee;
@@ -29,8 +31,11 @@
 
   --link: #1f7a6e;
   --accent-bright: #2a9d8f;
+  --accent-soft: rgba(42, 157, 143, 0.12);
   --danger: #b23a28;
+  --danger-soft: rgba(178, 58, 40, 0.08);
   --warn-fill: #e76f51;
+  --caution-fill: #e9c46a;
   --focus: #1f6f8b;
 
   --notice-bg: #eef4f2;
@@ -42,6 +47,7 @@
   --sidebar-link: #d7e3e0;
   --sidebar-muted: #c5d5d1;
   --sidebar-hover: rgba(255, 255, 255, 0.1);
+  --sidebar-active: rgba(255, 255, 255, 0.14);
   --sidebar-button-border: rgba(255, 255, 255, 0.25);
 
   --shell-glow: rgba(42, 157, 143, 0.12);
@@ -50,6 +56,23 @@
   --auth-grad-1: #f7f4ef;
   --auth-grad-2: #eef3f1;
   --auth-grad-3: #f8f1ea;
+
+  /* Category colours are chosen by the user and several are dark; on the dark
+     theme the chart lifts them so a #264653 slice does not vanish into the card. */
+  --chart-filter: none;
+  --skeleton: rgba(38, 70, 83, 0.07);
+  --skeleton-shine: rgba(255, 255, 255, 0.6);
+
+  --radius-sm: 8px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px var(--shadow-color), 0 1px 1px var(--shadow-color);
+  --shadow-md: 0 8px 24px var(--shadow-color);
+  --shadow-lg: 0 20px 50px var(--shadow-color);
+
+  --font-sans: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
 }
 
 /* Dark theme follows the OS setting. Not a naive inversion: the brand teal is
@@ -66,6 +89,8 @@
     --heading: #9fd3ca;
 
     --surface: rgba(27, 39, 43, 0.92);
+    --surface-solid: #1b272b;
+    --surface-hover: rgba(159, 211, 202, 0.05);
     --field-bg: #1a262a;
     --line: #34474d;
     --line-soft: #26363b;
@@ -79,8 +104,11 @@
 
     --link: #6ccfc0;
     --accent-bright: #45bfae;
+    --accent-soft: rgba(69, 191, 174, 0.14);
     --danger: #f0917a;
+    --danger-soft: rgba(240, 145, 122, 0.1);
     --warn-fill: #e98a70;
+    --caution-fill: #e9c46a;
     --focus: #72c6db;
 
     --notice-bg: #1c2d31;
@@ -92,6 +120,7 @@
     --sidebar-link: #c4d6d2;
     --sidebar-muted: #9fb6b1;
     --sidebar-hover: rgba(255, 255, 255, 0.08);
+    --sidebar-active: rgba(255, 255, 255, 0.12);
     --sidebar-button-border: rgba(255, 255, 255, 0.22);
 
     --shell-glow: rgba(69, 191, 174, 0.08);
@@ -100,6 +129,10 @@
     --auth-grad-1: #111a1d;
     --auth-grad-2: #14211f;
     --auth-grad-3: #1a1a1d;
+
+    --chart-filter: brightness(1.45) saturate(0.9);
+    --skeleton: rgba(159, 211, 202, 0.07);
+    --skeleton-shine: rgba(159, 211, 202, 0.1);
   }
 }
 
@@ -113,9 +146,29 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   color: var(--ink);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 button,
@@ -131,6 +184,10 @@ select,
 textarea {
   color: var(--ink);
   background-color: var(--field-bg);
+}
+
+a {
+  color: var(--link);
 }
 
 /* Every interactive element needs a focus ring a keyboard user can actually
@@ -180,8 +237,449 @@ select:focus-visible,
   top: 0.5rem;
 }
 
+/* ---------------------------------------------------------------------------
+ * Shared building blocks.
+ *
+ * These used to be copied into every page stylesheet — five slightly different
+ * button definitions — so a change to one never reached the others. Pages now
+ * style only what is specific to them.
+ * ------------------------------------------------------------------------- */
+
+.page {
+  display: grid;
+  /* Explicit minmax(0, …): the implicit column would grow to fit a wide table
+     instead of letting the table scroll inside its panel. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  animation: page-in 0.25s ease-out;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.panel-head h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.panel-head .meta,
+.muted {
+  color: var(--muted);
+}
+
+.panel-head .meta {
+  font-size: 0.9rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+
+.btn:hover:not(:disabled) {
+  box-shadow: 0 4px 14px var(--shadow-color);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-accent {
+  background: var(--accent-strong);
+}
+
+.btn-danger {
+  background: var(--danger-bg);
+}
+
+.btn-ghost {
+  background: var(--field-bg);
+  color: var(--heading);
+  border-color: var(--line);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  box-shadow: none;
+}
+
+.btn-sm {
+  min-height: 0;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.875rem;
+}
+
+/* Square icon-only button. Always paired with an aria-label in the template. */
+.btn-icon {
+  min-height: 0;
+  padding: 0.45rem;
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--heading);
+  box-shadow: none;
+}
+
+.btn-icon.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Fields ------------------------------------------------------------------ */
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  /* One height for text, date and select controls, so labels in a row line up
+     and every control is a comfortable 44px touch target. */
+  height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--ink);
+  line-height: 1.25;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.input:hover {
+  border-color: var(--muted-2);
+}
+
+.input:focus-visible {
+  border-color: var(--focus);
+}
+
+.input.ng-invalid.ng-touched {
+  border-color: var(--danger);
+}
+
+/* An input with a leading unit or icon. */
+.affix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.affix > .affix-start {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--muted);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+.affix > .input {
+  padding-left: 2.1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Tables ------------------------------------------------------------------ */
+
+.table-wrap {
+  overflow-x: auto;
+  margin-inline: -0.25rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.data-table th {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.15rem;
+  justify-content: flex-end;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.pager-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Small pieces ------------------------------------------------------------ */
+
+.money {
+  font-variant-numeric: tabular-nums;
+}
+
+.dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  /* Category colours are user-chosen; see --chart-filter. */
+  filter: var(--chart-filter);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--line-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--badge-bg);
+  color: var(--heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.progress {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-bright);
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.progress.caution > span {
+  background: var(--caution-fill);
+}
+
+.progress.over > span {
+  background: var(--warn-fill);
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state .empty-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.25rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--heading);
+}
+
+.empty-state strong {
+  color: var(--ink);
+}
+
+/* Placeholder blocks while a page loads, so the layout does not jump when the
+   data arrives. Paired with a visually-hidden role="status" message. */
+.skeleton {
+  display: block;
+  border-radius: var(--radius);
+  background: var(--skeleton);
+  background-image: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .skip-link {
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
