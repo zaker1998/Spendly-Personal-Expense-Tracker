@@ -1,18 +1,51 @@
+<div align="center">
+
+<img src="frontend/public/favicon.svg" width="72" height="72" alt="" />
+
 # Spendly
 
-Personal expense tracker with Spring Boot + Angular.
+**A full-stack personal expense tracker — Java 21 · Spring Boot 3 · Angular 19 · PostgreSQL,<br/>
+served from AWS CloudFront and built with the same care as production code.**
+
+[![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
+[![Security](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/security.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/security.yml)
+![Java 21](https://img.shields.io/badge/Java-21-E76F00?logo=openjdk&logoColor=white)
+![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4-6DB33F?logo=springboot&logoColor=white)
+![Angular 19](https://img.shields.io/badge/Angular-19-DD0031?logo=angular&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-264653.svg)](LICENSE)
+
+[**Live demo**](https://d26ecks03gnq4n.cloudfront.net) ·
+[Engineering notes](docs/ENGINEERING_NOTES.md) ·
+[Run locally](#run-locally) ·
+[API](#api)
+
+</div>
 
 ![Spendly dashboard](docs/screenshots/dashboard.png)
 
-**Live:** https://d26ecks03gnq4n.cloudfront.net
+> **Try it in one click:** open the [live demo](https://d26ecks03gnq4n.cloudfront.net) and press
+> **Try the demo** — you land on three months of sample Vienna spending, no sign-up needed.
+> The SPA is served from CloudFront and loads immediately; the API behind it is on Render's free
+> tier and is kept awake by a scheduled ping, but if it has been asleep the first data request can
+> still take a moment.
 
-**Stack:** Java 21, Spring Boot, JWT, JPA/Hibernate, Flyway, PostgreSQL, Angular, Docker, GitHub Actions, Testcontainers, Caffeine, Groq AI, Terraform (AWS S3 + CloudFront)
+## At a glance
 
-[![CI](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/zaker1998/Spendly-Personal-Expense-Tracker/actions/workflows/ci.yml)
+| | |
+|--|--|
+| **Backend** | Java 21, Spring Boot 3.4, Spring Security (short-lived JWT + rotating `httpOnly` refresh token), JPA/Hibernate, Flyway, Caffeine, virtual threads |
+| **Frontend** | Angular 19 standalone components, signals, `OnPush` everywhere, reactive forms; no UI library — a small hand-written design system with light and dark themes, responsive down to phone width |
+| **Quality** | 85 backend tests (unit + Testcontainers against real PostgreSQL, JaCoCo gate), 95 frontend unit tests, 22 Playwright browser tests including axe-core WCAG 2.1 AA checks in both themes |
+| **Delivery** | Docker, GitHub Actions (CI, CodeQL, Trivy, `npm audit`, Dependabot), Terraform for S3 + CloudFront with OIDC deploys — no AWS keys in the repo |
 
-> The SPA is served from CloudFront, so the app itself loads immediately. The API
-> behind it is on Render's free tier and is kept awake by a scheduled ping; if it
-> has been asleep, the first data request can still take a moment.
+**Worth a look in the code**
+
+- **Sessions that can actually end** — [`RefreshTokenService`](backend/src/main/java/com/spendly/service/RefreshTokenService.java) rotates and revokes hashed refresh tokens; [`auth.interceptor.ts`](frontend/src/app/core/auth.interceptor.ts) shares one refresh between parallel 401s.
+- **Cache that never serves uncommitted totals** — [`SummaryCacheEvictor`](backend/src/main/java/com/spendly/service/SummaryCacheEvictor.java) evicts after commit, per user and month.
+- **LLM output treated as untrusted input** — [`CategorySuggestionService`](backend/src/main/java/com/spendly/service/CategorySuggestionService.java) checks the model's answer against the database and falls back to a heuristic.
+- **A CSV export that streams** — [`ExpenseExportService`](backend/src/main/java/com/spendly/service/ExpenseExportService.java) uses keyset pagination and neutralises spreadsheet formula injection.
+- **Bugs found and fixed in my own code**, with the reasoning — [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md).
 
 ## Features
 
@@ -22,13 +55,14 @@ Personal expense tracker with Spring Boot + Angular.
 - Expenses & categories CRUD, with **optimistic locking** — a stale edit gets a 409 instead of silently overwriting someone else's change
 - **AI category suggestion** — an LLM (with keyword-heuristic fallback) suggests the right category from the expense description
 - Filters + pagination on expense list
-- Monthly dashboard with month picker + category chart, **cached with Caffeine**
+- Monthly dashboard — total with the change against last month, daily average, budget left, a category donut in each category's own colour and the latest expenses — **cached with Caffeine**
 - Budgets with progress / over-budget
 - CSV export (streamed, and neutralised against spreadsheet formula injection)
 - **Rate limiting** on auth + AI endpoints (per-IP fixed window, HTTP 429 + `Retry-After`)
 - Consistent JSON errors: structured 400s for bad input, 401/403 bodies, no leaking 500s — each carrying the request id that is also in the logs and the `X-Request-Id` header
 - **Accessible UI** — labelled controls, skip link, WCAG AA contrast; zero axe-core violations in **both light and dark themes**, checked in CI
-- Dark theme that follows the OS setting
+- Dark theme that follows the OS setting, and a layout that works down to phone width
+- One-click demo sign-in on the login page
 - Admin UI (users + all expenses), paged
 - Swagger UI
 - Prometheus metrics at `/actuator/prometheus` (admin only), including cache hit/miss counters; liveness/readiness probes
@@ -81,6 +115,7 @@ in my own code — are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md)
 - **Testcontainers over H2 for integration tests** — tests run against the same PostgreSQL version as production, so dialect-specific behaviour (e.g. in filtered queries) is actually covered.
 - **In-memory rate limiting** — login/register and the AI endpoint are the two abuse targets (credential brute-force, external API quota). A per-IP fixed window in process memory is enough for a single instance — same reasoning as Caffeine over Redis. `X-Forwarded-For` is only trusted when the deployment declares a proxy in front (`RATE_LIMIT_BEHIND_PROXY`), because otherwise the header is client-supplied and rotating it would hand out an unlimited number of login attempts.
 - **Accessibility is measured, not asserted** — an axe-core suite runs against the real app in CI across every page and both admin tabs, so an unlabelled input or a contrast regression fails the build. It is a floor rather than a certificate: automated rules catch roughly a third of WCAG issues, and the app has not been tested with a screen reader. Details, including the two places where adding ARIA would have made things worse, are in the engineering notes.
+- **No component library in the SPA** — the UI is a few dozen lines of shared building blocks in `styles.css` (buttons, fields, tables, progress bars) on top of colour tokens, plus a dozen inline SVG icons. Every colour resolves through a token, which is what made a contrast-checked dark theme one block of overrides instead of a rewrite, and the whole initial bundle stays around 90 kB over the wire.
 - **The CSV export streams** — it reads 500 rows at a time and writes straight to the socket, deliberately without a surrounding transaction so a slow download cannot hold a pooled connection open. Chunks are fetched by seeking past the last `id` rather than by `OFFSET`: an offset walk re-reads everything before the offset on every chunk, and paging through `Page` added a `COUNT(*)` to each one.
 - **Optimistic locking with the version on the wire** — Hibernate's `@Version` only covers one transaction. Two tabs that each load and then save are two transactions, so the client also sends back the version it loaded and the API refuses a stale one with 409.
 - **Indexes follow the hot paths** — every authenticated request loads the user by email case-insensitively, so there is a `lower(email)` index for it; the description search uses a `pg_trgm` index, since `LIKE '%term%'` cannot use a btree.
@@ -248,6 +283,17 @@ startup.
 
 ## Screenshots
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/login.png" alt="Sign-in page with one-click demo access" /></td>
+    <td width="50%"><img src="docs/screenshots/dashboard-dark.png" alt="Dashboard in the dark theme" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Sign in</b> — what the app is, and a one-click demo</td>
+    <td align="center"><b>Dark theme</b> — its own contrast-checked palette, not an inversion</td>
+  </tr>
+</table>
+
 **Expenses** — filtering, pagination, CSV export, and the category suggestion.
 The LLM is asked to choose from your own category names and its answer is checked
 against the database before it is returned, so the label reads *AI suggests* only
@@ -257,16 +303,29 @@ label drops to *Suggested*.
 
 ![Expenses](docs/screenshots/expenses.png)
 
-**Admin** — role-gated view of every user and expense in the system, paged.
+**Budgets** — overall or per-category monthly limits; a card turns amber from 85% and flags anything over.
 
-![Admin](docs/screenshots/admin.png)
+![Budgets](docs/screenshots/budgets.png)
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/login-mobile.png" alt="Sign-in page on a phone" /></td>
+    <td width="33%"><img src="docs/screenshots/dashboard-mobile.png" alt="Dashboard on a phone" /></td>
+    <td width="33%"><img src="docs/screenshots/expenses-mobile.png" alt="New expense form on a phone" /></td>
+  </tr>
+  <tr><td colspan="3" align="center"><b>On a phone</b> — the same app at 390px wide</td></tr>
+</table>
 
 <details>
 <summary>More screenshots</summary>
 
-**Budgets** — monthly limits with progress and over-budget state.
+**Categories** — your own labels and colours; the colours carry through to the dashboard chart.
 
-![Budgets](docs/screenshots/budgets.png)
+![Categories](docs/screenshots/categories.png)
+
+**Admin** — role-gated view of every user and expense in the system, paged.
+
+![Admin](docs/screenshots/admin.png)
 
 **Swagger UI** — the full API surface.
 
@@ -329,8 +388,8 @@ Everything returning a collection of unknown size is paged (`page`, `size`, `sor
 ## Tests
 
 ```bash
-cd backend && ./mvnw verify      # 84 tests + a JaCoCo coverage floor (80% lines, 55% branches)
-cd frontend && npm run test:ci   # 83 tests, headless Chrome + coverage
+cd backend && ./mvnw verify      # 85 tests + a JaCoCo coverage floor (80% lines, 55% branches)
+cd frontend && npm run test:ci   # 95 tests, headless Chrome + coverage
 cd frontend && npm run lint      # angular-eslint, incl. OnPush and control-flow rules
 cd frontend && npm run format:check
 
@@ -384,8 +443,8 @@ on the busiest page has an accessible name. This took the app from 24 automated
 violations to 0 — see [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md) for
 what that number does and doesn't mean.
 
-Line coverage is ~85% on the backend and ~88% on the frontend.
+Line coverage is ~85% on the backend and ~90% on the frontend.
 
 ## License
 
-MIT
+[MIT](LICENSE)
