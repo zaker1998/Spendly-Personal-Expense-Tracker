@@ -539,6 +539,50 @@ response the page consumed through `fetch()` the browser does not always still
 have it. The test now reads the body in a route handler, before the browser sees
 it — 15 out of 15 since.
 
+## 16. What a UI redesign shook loose
+
+The redesign (a shared design system, icons, a donut chart in each category's own
+colour) was meant to be cosmetic. It turned up four things that were not.
+
+**A positional column list was one edit away from a wrong total.** The monthly
+per-category query returned `Object[]`, and two services read it by index. The
+chart needed the category colour, which meant a new column — and `BudgetService`
+was reading the sum from `row[2]`, which would now have been the colour. It would
+have failed with a `ClassCastException` on the first budget page, which is the
+lucky case; had both columns been numbers, budget progress would have silently
+shown the wrong figure. The query now builds a `CategorySpend` record through a
+JPQL constructor expression, so a new column is a compile error in every reader,
+not a runtime surprise in one of them.
+
+**A recolour served a stale chart.** The summary cache is invalidated on a rename
+because it carries category names (see §2). Once it also carried colours, a
+colour-only edit left the dashboard drawing the old colour for up to ten
+minutes. The event is now `CategoryChangedEvent`, raised for a rename *or* a
+recolour, with an integration test for the second case.
+
+**The phone layout had scrolled sideways since it was written.** On narrow
+screens the shell is a single `1fr` grid column. `1fr` means `minmax(auto, 1fr)`,
+and `auto` there is the content's min-content width — which, for a row of nav
+links that is supposed to scroll horizontally, is every link side by side. The
+whole page grew to about 800px and the "Log out" button sat off screen. The fix
+is `minmax(0, 1fr)`, applied to the page grid as well so a wide table scrolls
+inside its panel instead of widening the page.
+
+**Animation can fail an accessibility check.** The first axe run after the
+redesign flagged the active admin tab for contrast. At rest it is white on
+`#264653`, about 10:1; but the tab faded both its fill and its text colour over
+150ms, axe measured half-way through, and half-way the pair really is below
+4.5:1 — as it is for a real user during that fade. The tabs now switch
+instantly. The toast accent stripe had a similar never-noticed bug: `border-left`
+was declared before the `border` shorthand, which reset it, so the success/error
+colour had never actually rendered.
+
+The same pass removed a hand-declared `DaoAuthenticationProvider` bean. With a
+single `UserDetailsService` and `PasswordEncoder`, Spring Security builds the
+same provider itself; declaring it as well only produced a startup warning, on
+every boot and in every test context, that the `UserDetailsService` bean would
+be ignored.
+
 ---
 
 ## Testing
