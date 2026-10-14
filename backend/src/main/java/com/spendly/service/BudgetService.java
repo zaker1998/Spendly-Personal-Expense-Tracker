@@ -9,6 +9,7 @@ import com.spendly.dto.BudgetDtos.BudgetResponse;
 import com.spendly.exception.ConflictException;
 import com.spendly.exception.ResourceNotFoundException;
 import com.spendly.repository.BudgetRepository;
+import com.spendly.repository.CategorySpend;
 import com.spendly.repository.ExpenseRepository;
 import com.spendly.repository.UserRepository;
 import java.math.BigDecimal;
@@ -55,10 +56,9 @@ public class BudgetService {
         // One grouped query for the whole list instead of a totals query per budget.
         Map<Long, BigDecimal> spentByCategory = new HashMap<>();
         BigDecimal overallSpent = BigDecimal.ZERO;
-        for (Object[] row : expenseRepository.sumByCategoryForMonth(userId, from, to)) {
-            BigDecimal sum = (BigDecimal) row[2];
-            spentByCategory.put((Long) row[0], sum);
-            overallSpent = overallSpent.add(sum);
+        for (CategorySpend row : expenseRepository.sumByCategoryForMonth(userId, from, to)) {
+            spentByCategory.put(row.categoryId(), row.total());
+            overallSpent = overallSpent.add(row.total());
         }
 
         final BigDecimal totalSpent = overallSpent;

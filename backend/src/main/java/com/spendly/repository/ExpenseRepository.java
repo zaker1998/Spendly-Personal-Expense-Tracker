@@ -117,15 +117,16 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     );
 
     @Query("""
-            SELECT e.category.id, e.category.name, COALESCE(SUM(e.amount), 0)
+            SELECT new com.spendly.repository.CategorySpend(
+                e.category.id, e.category.name, e.category.color, SUM(e.amount))
             FROM Expense e
             WHERE e.user.id = :userId
               AND e.spentOn >= :fromDate
               AND e.spentOn <= :toDate
-            GROUP BY e.category.id, e.category.name
+            GROUP BY e.category.id, e.category.name, e.category.color
             ORDER BY SUM(e.amount) DESC
             """)
-    List<Object[]> sumByCategoryForMonth(
+    List<CategorySpend> sumByCategoryForMonth(
             @Param("userId") Long userId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate

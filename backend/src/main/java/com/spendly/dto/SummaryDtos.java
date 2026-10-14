@@ -11,6 +11,7 @@ public final class SummaryDtos {
     public record CategoryTotal(
             Long categoryId,
             String categoryName,
+            String categoryColor,
             BigDecimal total
     ) {
     }
