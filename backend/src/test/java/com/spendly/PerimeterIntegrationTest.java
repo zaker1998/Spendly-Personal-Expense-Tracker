@@ -239,4 +239,44 @@ class PerimeterIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.byCategory[0].categoryName").value("Renamed"));
     }
+
+    /**
+     * The summary also carries the colour the dashboard chart is drawn in, so a
+     * colour-only edit has to invalidate it just like a rename.
+     */
+    @Test
+    void recolouringACategoryRefreshesTheCachedSummary() throws Exception {
+        String token = registerAndGetToken("recolour-" + System.nanoTime() + "@spendly.app");
+        var category = objectMapper.readTree(
+                        mockMvc.perform(get("/api/categories").header("Authorization", "Bearer " + token))
+                                .andReturn().getResponse().getContentAsString())
+                .get(0);
+        long categoryId = category.get("id").asLong();
+        String name = category.get("name").asText();
+
+        mockMvc.perform(post("/api/expenses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"categoryId":%d,"amount":10.00,"spentOn":"2026-05-10"}
+                                """.formatted(categoryId)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/summary/monthly?year=2026&month=5")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/categories/" + categoryId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"%s","color":"#123456"}
+                                """.formatted(name)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/summary/monthly?year=2026&month=5")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.byCategory[0].categoryColor").value("#123456"));
+    }
 }

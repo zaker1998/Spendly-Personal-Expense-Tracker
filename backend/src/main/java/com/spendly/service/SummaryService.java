@@ -32,9 +32,10 @@ public class SummaryService {
         BigDecimal total = expenseRepository.totalForMonth(userId, from, to);
         List<CategoryTotal> byCategory = expenseRepository.sumByCategoryForMonth(userId, from, to).stream()
                 .map(row -> new CategoryTotal(
-                        (Long) row[0],
-                        (String) row[1],
-                        (BigDecimal) row[2]
+                        row.categoryId(),
+                        row.categoryName(),
+                        row.categoryColor(),
+                        row.total()
                 ))
                 .toList();
 

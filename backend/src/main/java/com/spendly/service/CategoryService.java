@@ -10,6 +10,7 @@ import com.spendly.exception.ResourceNotFoundException;
 import com.spendly.repository.CategoryRepository;
 import com.spendly.repository.UserRepository;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +61,8 @@ public class CategoryService {
         ExpenseService.requireCurrentVersion(category.getVersion(), request.version());
 
         String newName = request.name().trim();
-        boolean renamed = !category.getName().equals(newName);
+        boolean changed = !category.getName().equals(newName)
+                || !Objects.equals(category.getColor(), request.color());
         if (!category.getName().equalsIgnoreCase(newName)
                 && categoryRepository.existsByUserIdAndNameIgnoreCase(userId, newName)) {
             throw new ConflictException("Category already exists");
@@ -71,11 +73,11 @@ public class CategoryService {
         // See ExpenseService.update: the version in the response has to be the
         // one the row now holds, not the one it held on the way in.
         categoryRepository.flush();
-        if (renamed) {
-            // The cached monthly summary embeds category names, and nothing else
-            // invalidates it on a rename — the dashboard used to show the old
-            // name until the entry expired.
-            events.publishEvent(new CategoryRenamedEvent(userId));
+        if (changed) {
+            // The cached monthly summary embeds category names and colours, and
+            // nothing else invalidates it on an edit — the dashboard used to show
+            // the old name until the entry expired.
+            events.publishEvent(new CategoryChangedEvent(userId));
         }
         return toResponse(category);
     }

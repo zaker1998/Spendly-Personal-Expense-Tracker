@@ -33,7 +33,7 @@ public class SummaryCacheEvictor {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onCategoryRenamed(CategoryRenamedEvent event) {
+    public void onCategoryChanged(CategoryChangedEvent event) {
         evictAllForUser(event.userId());
     }
 
@@ -52,7 +52,7 @@ public class SummaryCacheEvictor {
      *
      * <p>Keys are {@code userId:year:month} strings, so this walks the native
      * map rather than calling {@code clear()} — clearing would throw away every
-     * other user's warm entries to fix one user's stale names.
+     * other user's warm entries to fix one user's stale names or colours.
      */
     void evictAllForUser(Long userId) {
         if (userId == null) {
