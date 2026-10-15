@@ -15,7 +15,7 @@ COPY --from=frontend-build /frontend/dist/frontend/browser/ ./src/main/resources
 # Cache mount: see backend/Dockerfile for why this is not a go-offline layer.
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 RUN addgroup -S spendly && adduser -S spendly -G spendly
 COPY --from=backend-build /app/target/*.jar app.jar
